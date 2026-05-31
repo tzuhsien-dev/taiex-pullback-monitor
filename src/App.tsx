@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity } from 'lucide-react';
 import { AlertSummary } from './components/AlertSummary';
 import { DashboardCards } from './components/DashboardCards';
 import { IndexChart } from './components/IndexChart';
@@ -112,10 +111,6 @@ function App() {
     <div className="min-h-screen bg-ink pb-28 text-slate-100">
       <header className="border-b border-slate-800 bg-ink/90">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-medium text-cyan-200">
-            <Activity className="h-4 w-4" />
-            GitHub Pages 靜態資料工具
-          </div>
           <h1 className="text-2xl font-semibold text-white sm:text-3xl">台股近期高點回落監控器</h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-400">
             監控加權指數或加權報酬指數是否已從使用者指定觀察期內的近期高點回落指定比例。
