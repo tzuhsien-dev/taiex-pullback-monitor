@@ -1,6 +1,6 @@
 import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Gauge, LineChart, TrendingDown, TrendingUp } from 'lucide-react';
 import type { DataHealth, DataSource, IndexType, MarketMetadata, PullbackParams, PullbackResult } from '../types';
-import { formatNumber, formatPercent, formatSignedPercent } from '../lib/calculations';
+import { formatDateTime, formatNumber, formatPercent, formatSignedPercent } from '../lib/calculations';
 import { DataSourceBadge } from './DataSourceBadge';
 import { StatusBadge } from './StatusBadge';
 
@@ -53,6 +53,8 @@ export function DashboardCards({
 }) {
   const pullbackTone = result.status === 'triggered' ? 'success' : result.status === 'near' ? 'warning' : 'neutral';
   const distanceTone = result.distanceToThresholdPoints <= 0 ? 'success' : result.status === 'near' ? 'warning' : 'neutral';
+  const formattedLastUpdated = formatDateTime(metadata?.lastUpdated);
+  const generatedByLabel = metadata ? `${metadata.source} / GitHub Actions` : '目前不是 TWSE 真實資料';
   const healthClass =
     dataHealth.status === 'healthy'
       ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
@@ -86,7 +88,7 @@ export function DashboardCards({
             </span>
             <span className="inline-flex items-center gap-2">
               <Activity className="h-4 w-4 text-cyan-300" />
-              最後更新 {metadata?.lastUpdated ?? '無更新時間'}
+              最後更新 {formattedLastUpdated}
             </span>
             <span className="inline-flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-300" />
@@ -115,8 +117,8 @@ export function DashboardCards({
         <MetricCard label="門檻點位" value={formatNumber(result.thresholdIndex)} />
         <MetricCard
           label="資料最後更新時間"
-          value={metadata?.lastUpdated ?? '無'}
-          detail={metadata?.generatedBy ?? '目前不是 TWSE 真實資料'}
+          value={formattedLastUpdated}
+          detail={generatedByLabel}
           tone={dataHealth.status === 'healthy' ? 'success' : dataHealth.status === 'stale' ? 'warning' : 'danger'}
         />
         <MetricCard

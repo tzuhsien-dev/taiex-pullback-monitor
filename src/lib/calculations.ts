@@ -13,6 +13,23 @@ export const formatPercent = (value: number, maximumFractionDigits = 2) =>
 export const formatSignedPercent = (value: number, maximumFractionDigits = 2) =>
   `${decimalToPercent(value).toFixed(maximumFractionDigits)}%`;
 
+export const formatDateTime = (value?: string | null) => {
+  if (!value) return '無更新時間';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+};
+
 export const sortMarketData = (points: MarketPoint[]) =>
   [...points].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
