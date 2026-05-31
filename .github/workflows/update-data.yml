@@ -27,6 +27,9 @@ jobs:
       - name: Fetch TWSE data
         run: npm run update:data
 
+      - name: Verify build with updated data
+        run: npm run build
+
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5
         with:

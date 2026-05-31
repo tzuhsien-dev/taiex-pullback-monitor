@@ -1,5 +1,5 @@
-import { Activity, CalendarClock, Gauge, LineChart, TrendingDown, TrendingUp } from 'lucide-react';
-import type { DataSource, IndexType, MarketMetadata, PullbackParams, PullbackResult } from '../types';
+import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Gauge, LineChart, TrendingDown, TrendingUp } from 'lucide-react';
+import type { DataHealth, DataSource, IndexType, MarketMetadata, PullbackParams, PullbackResult } from '../types';
 import { formatNumber, formatPercent, formatSignedPercent } from '../lib/calculations';
 import { DataSourceBadge } from './DataSourceBadge';
 import { StatusBadge } from './StatusBadge';
@@ -42,15 +42,24 @@ export function DashboardCards({
   indexType,
   metadata,
   source,
+  dataHealth,
 }: {
   result: PullbackResult;
   params: PullbackParams;
   indexType: IndexType;
   metadata: MarketMetadata | null;
   source: DataSource;
+  dataHealth: DataHealth;
 }) {
   const pullbackTone = result.status === 'triggered' ? 'success' : result.status === 'near' ? 'warning' : 'neutral';
   const distanceTone = result.distanceToThresholdPoints <= 0 ? 'success' : result.status === 'near' ? 'warning' : 'neutral';
+  const healthClass =
+    dataHealth.status === 'healthy'
+      ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+      : dataHealth.status === 'stale'
+        ? 'border-amber-300/30 bg-amber-300/10 text-amber-100'
+        : 'border-red-400/30 bg-red-400/10 text-red-100';
+  const HealthIcon = dataHealth.status === 'healthy' ? CheckCircle2 : AlertTriangle;
 
   return (
     <section className="grid gap-4">
@@ -60,6 +69,10 @@ export function DashboardCards({
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <DataSourceBadge source={source} />
               <StatusBadge status={result.status} text={result.statusText} />
+              <span className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-sm font-semibold ${healthClass}`}>
+                <HealthIcon className="h-4 w-4" />
+                {dataHealth.label}
+              </span>
             </div>
             <h2 className="text-2xl font-semibold text-white">近期高點回落監控</h2>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
@@ -75,12 +88,22 @@ export function DashboardCards({
               <Activity className="h-4 w-4 text-cyan-300" />
               最後更新 {metadata?.lastUpdated ?? '無更新時間'}
             </span>
+            <span className="inline-flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-300" />
+              {dataHealth.detail}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="指數類型" value={indexLabel[indexType]} />
+        <MetricCard
+          label="資料健康狀態"
+          value={dataHealth.label}
+          detail={dataHealth.detail}
+          tone={dataHealth.status === 'healthy' ? 'success' : dataHealth.status === 'stale' ? 'warning' : 'danger'}
+        />
         <MetricCard label="目前指數" value={formatNumber(result.currentIndex)} detail={result.latestDate} />
         <MetricCard label="觀察期 N 日" value={`${params.lookbackDays}`} />
         <MetricCard label="最終狀態" value={result.statusText} tone={pullbackTone} />
@@ -90,6 +113,12 @@ export function DashboardCards({
         <MetricCard label="從近期低點反彈" value={formatSignedPercent(result.reboundFromLow)} tone="success" />
         <MetricCard label="回落門檻" value={formatPercent(params.pullbackThreshold)} />
         <MetricCard label="門檻點位" value={formatNumber(result.thresholdIndex)} />
+        <MetricCard
+          label="資料最後更新時間"
+          value={metadata?.lastUpdated ?? '無'}
+          detail={metadata?.generatedBy ?? '目前不是 TWSE 真實資料'}
+          tone={dataHealth.status === 'healthy' ? 'success' : dataHealth.status === 'stale' ? 'warning' : 'danger'}
+        />
         <MetricCard
           label="距離門檻還差"
           value={`${formatNumber(result.distanceToThresholdPoints)} 點`}

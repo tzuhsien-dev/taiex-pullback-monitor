@@ -7,12 +7,57 @@ import { RiskFooter } from './components/RiskFooter';
 import { calculatePullback, sampleData } from './lib/calculations';
 import { parseMarketCsv } from './lib/csv';
 import { loadMarketData } from './lib/loadData';
-import type { DataSource, IndexType, MarketMetadata, MarketPoint, PullbackParams } from './types';
+import type { DataHealth, DataSource, IndexType, MarketMetadata, MarketPoint, PullbackParams } from './types';
 
 const initialParams: PullbackParams = {
   lookbackDays: 250,
   pullbackThreshold: 0.1,
   nearThreshold: 0.07,
+};
+
+const staleThresholdDays = 5;
+
+const getDataHealth = (source: DataSource, metadata: MarketMetadata | null): DataHealth => {
+  if (source === 'sample') {
+    return {
+      status: 'fallback',
+      label: '目前不是 TWSE 真實資料',
+      detail: '靜態 JSON 或 metadata 讀取失敗，已改用內建範例資料。',
+    };
+  }
+
+  if (source === 'csv') {
+    return {
+      status: 'healthy',
+      label: '使用 CSV 資料',
+      detail: '目前資料由使用者上傳，不受 GitHub Actions 更新時間影響。',
+    };
+  }
+
+  if (!metadata) {
+    return {
+      status: 'fallback',
+      label: 'metadata 缺失',
+      detail: '無法確認 TWSE 資料更新時間。',
+    };
+  }
+
+  const updatedAt = new Date(metadata.lastUpdated).getTime();
+  const ageDays = Number.isFinite(updatedAt) ? (Date.now() - updatedAt) / 86_400_000 : Infinity;
+
+  if (ageDays > staleThresholdDays) {
+    return {
+      status: 'stale',
+      label: '資料可能過期',
+      detail: `最後更新已超過 ${staleThresholdDays} 天，請檢查 Update TWSE data workflow。`,
+    };
+  }
+
+  return {
+    status: 'healthy',
+    label: '資料更新正常',
+    detail: `TWSE 最新日期：加權 ${metadata.priceLatestDate}，報酬 ${metadata.totalReturnLatestDate}`,
+  };
 };
 
 function App() {
@@ -43,6 +88,7 @@ function App() {
   }, [indexType, reloadKey]);
 
   const result = useMemo(() => calculatePullback(points, params), [params, points]);
+  const dataHealth = useMemo(() => getDataHealth(source, metadata), [metadata, source]);
 
   const handleCsvUpload = (content: string) => {
     try {
@@ -87,7 +133,7 @@ function App() {
           onParamsChange={setParams}
           onReloadStaticData={() => setReloadKey((value) => value + 1)}
         />
-        <DashboardCards result={result} params={params} indexType={indexType} metadata={metadata} source={source} />
+        <DashboardCards result={result} params={params} indexType={indexType} metadata={metadata} source={source} dataHealth={dataHealth} />
         <IndexChart result={result} />
       </main>
 

@@ -21,6 +21,7 @@ const endpoints = {
 const outputDir = path.resolve('public/data');
 const maxTradingDays = 1000;
 const monthsBack = 60;
+const minTradingDays = 250;
 
 const addMonths = (date: Date, months: number) => {
   const next = new Date(date);
@@ -31,18 +32,23 @@ const addMonths = (date: Date, months: number) => {
 
 const toMonthParam = (date: Date) => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}01`;
 
-const parseNumber = (value: string) => {
+const indexLabel = {
+  price: '加權指數',
+  totalReturn: '加權報酬指數',
+};
+
+const parseNumber = (value: string, context: string) => {
   const parsed = Number(value.replace(/,/g, '').trim());
   if (!Number.isFinite(parsed)) {
-    throw new Error(`無法解析數字：${value}`);
+    throw new Error(`${context}: 無法解析數字「${value}」`);
   }
   return parsed;
 };
 
-const parseTwseDate = (value: string) => {
+const parseTwseDate = (value: string, context: string) => {
   const parts = value.trim().split(/[/-]/).map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) {
-    throw new Error(`無法解析日期：${value}`);
+    throw new Error(`${context}: 無法解析日期「${value}」`);
   }
 
   const [year, month, day] = parts;
@@ -55,7 +61,7 @@ const findFieldIndex = (fields: string[], candidates: string[]) => {
   return index;
 };
 
-const fetchMonth = async (endpoint: string, month: Date) => {
+const fetchMonth = async (endpoint: string, month: Date, kind: 'price' | 'totalReturn') => {
   const url = `${endpoint}?response=json&date=${toMonthParam(month)}`;
   const response = await fetch(url, {
     headers: {
@@ -65,23 +71,23 @@ const fetchMonth = async (endpoint: string, month: Date) => {
   });
 
   if (!response.ok) {
-    throw new Error(`TWSE request failed: ${response.status} ${url}`);
+    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE request failed ${response.status} ${url}`);
   }
 
   const payload = (await response.json()) as TwsePayload;
 
   if (payload.stat !== 'OK') {
-    throw new Error(`TWSE stat is not OK for ${url}: ${payload.stat ?? 'missing stat'}`);
+    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE stat is not OK (${payload.stat ?? 'missing stat'})`);
   }
 
   if (!Array.isArray(payload.fields) || !Array.isArray(payload.data)) {
-    throw new Error(`TWSE response format changed for ${url}: missing fields/data`);
+    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE response format changed, missing fields/data`);
   }
 
   return payload;
 };
 
-const parsePayload = (payload: TwsePayload, kind: 'price' | 'totalReturn') => {
+const parsePayload = (payload: TwsePayload, kind: 'price' | 'totalReturn', month: Date) => {
   const fields = payload.fields ?? [];
   const dateIndex = findFieldIndex(fields, ['日期']);
   const valueIndex =
@@ -90,18 +96,56 @@ const parsePayload = (payload: TwsePayload, kind: 'price' | 'totalReturn') => {
       : findFieldIndex(fields, ['發行量加權股價報酬指數']);
 
   if (dateIndex === -1) {
-    throw new Error(`TWSE response format changed: missing 日期 field in ${payload.title ?? 'unknown title'}`);
+    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE response format changed, missing 日期 field in ${payload.title ?? 'unknown title'}`);
   }
 
   if (valueIndex === -1) {
     const expected = kind === 'price' ? '收盤指數' : '發行量加權股價報酬指數';
-    throw new Error(`TWSE response format changed: missing ${expected} field in ${payload.title ?? 'unknown title'}`);
+    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE response format changed, missing ${expected} field in ${payload.title ?? 'unknown title'}`);
   }
 
-  return (payload.data ?? []).map((row) => ({
-    date: parseTwseDate(row[dateIndex] ?? ''),
-    index: parseNumber(row[valueIndex] ?? ''),
+  return (payload.data ?? []).map((row, rowIndex) => ({
+    date: parseTwseDate(row[dateIndex] ?? '', `${indexLabel[kind]} ${toMonthParam(month)} row ${rowIndex + 1}`),
+    index: parseNumber(row[valueIndex] ?? '', `${indexLabel[kind]} ${toMonthParam(month)} row ${rowIndex + 1}`),
   }));
+};
+
+const validateIndexData = (kind: 'price' | 'totalReturn', points: MarketPoint[]) => {
+  if (points.length < minTradingDays) {
+    throw new Error(`${indexLabel[kind]}: 資料筆數不足，至少需要 ${minTradingDays} 筆，目前 ${points.length} 筆`);
+  }
+
+  if (points.length > maxTradingDays) {
+    throw new Error(`${indexLabel[kind]}: 資料筆數超過 ${maxTradingDays} 筆，目前 ${points.length} 筆`);
+  }
+
+  const seenDates = new Set<string>();
+
+  points.forEach((point, index) => {
+    if (!point.date || Number.isNaN(new Date(point.date).getTime())) {
+      throw new Error(`${indexLabel[kind]}: 第 ${index + 1} 筆日期不合法：${point.date}`);
+    }
+
+    if (!Number.isFinite(point.index) || point.index <= 0) {
+      throw new Error(`${indexLabel[kind]}: 第 ${index + 1} 筆 index 不合法：${point.index}`);
+    }
+
+    if (seenDates.has(point.date)) {
+      throw new Error(`${indexLabel[kind]}: 日期重複：${point.date}`);
+    }
+    seenDates.add(point.date);
+
+    if (index > 0 && new Date(points[index - 1].date).getTime() >= new Date(point.date).getTime()) {
+      throw new Error(`${indexLabel[kind]}: 日期未依舊到新排序：${points[index - 1].date} -> ${point.date}`);
+    }
+  });
+
+  const latest = points[points.length - 1];
+  const latestAgeDays = (Date.now() - new Date(`${latest.date}T00:00:00+08:00`).getTime()) / 86_400_000;
+
+  if (latestAgeDays > 14) {
+    throw new Error(`${indexLabel[kind]}: 最新資料日期 ${latest.date} 距今超過 14 天，可能抓取失敗`);
+  }
 };
 
 const fetchIndexData = async (kind: 'price' | 'totalReturn') => {
@@ -110,8 +154,8 @@ const fetchIndexData = async (kind: 'price' | 'totalReturn') => {
   const points: MarketPoint[] = [];
 
   for (const month of months) {
-    const payload = await fetchMonth(endpoints[kind], month);
-    points.push(...parsePayload(payload, kind));
+    const payload = await fetchMonth(endpoints[kind], month, kind);
+    points.push(...parsePayload(payload, kind, month));
   }
 
   const unique = new Map(points.map((point) => [point.date, point]));
@@ -121,6 +165,8 @@ const fetchIndexData = async (kind: 'price' | 'totalReturn') => {
   if (trimmed.length === 0) {
     throw new Error(`${kind} data is empty after parsing TWSE responses.`);
   }
+
+  validateIndexData(kind, trimmed);
 
   return trimmed;
 };
@@ -151,8 +197,12 @@ const main = async () => {
   await writeJson('metadata.json', {
     lastUpdated: `${lastUpdated}+08:00`,
     source: 'TWSE',
+    status: 'ok',
+    generatedBy: 'scripts/fetch-twse-data.ts',
     priceDataCount: priceData.length,
     totalReturnDataCount: totalReturnData.length,
+    priceLatestDate: priceData[priceData.length - 1].date,
+    totalReturnLatestDate: totalReturnData[totalReturnData.length - 1].date,
   });
 
   console.log(`Wrote ${priceData.length} price points and ${totalReturnData.length} total-return points.`);

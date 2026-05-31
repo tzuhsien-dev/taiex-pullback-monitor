@@ -23,8 +23,12 @@ const isMetadata = (value: unknown): value is MarketMetadata => {
   return (
     typeof metadata.lastUpdated === 'string' &&
     typeof metadata.source === 'string' &&
+    metadata.status === 'ok' &&
+    typeof metadata.generatedBy === 'string' &&
     typeof metadata.priceDataCount === 'number' &&
-    typeof metadata.totalReturnDataCount === 'number'
+    typeof metadata.totalReturnDataCount === 'number' &&
+    typeof metadata.priceLatestDate === 'string' &&
+    typeof metadata.totalReturnLatestDate === 'string'
   );
 };
 

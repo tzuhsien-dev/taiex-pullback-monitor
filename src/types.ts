@@ -10,8 +10,12 @@ export type DataSource = 'actions' | 'csv' | 'sample';
 export type MarketMetadata = {
   lastUpdated: string;
   source: string;
+  status: 'ok';
+  generatedBy: string;
   priceDataCount: number;
   totalReturnDataCount: number;
+  priceLatestDate: string;
+  totalReturnLatestDate: string;
 };
 
 export type LoadedMarketData = {
@@ -19,6 +23,14 @@ export type LoadedMarketData = {
   metadata: MarketMetadata | null;
   source: DataSource;
   error?: string;
+};
+
+export type DataHealthStatus = 'healthy' | 'stale' | 'fallback';
+
+export type DataHealth = {
+  status: DataHealthStatus;
+  label: string;
+  detail: string;
 };
 
 export type PullbackParams = {

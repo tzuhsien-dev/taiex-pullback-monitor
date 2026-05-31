@@ -1,6 +1,10 @@
 {
-  "lastUpdated": "2026-05-31T21:46:19+08:00",
+  "lastUpdated": "2026-05-31T22:25:36+08:00",
   "source": "TWSE",
+  "status": "ok",
+  "generatedBy": "scripts/fetch-twse-data.ts",
   "priceDataCount": 1000,
-  "totalReturnDataCount": 1000
+  "totalReturnDataCount": 1000,
+  "priceLatestDate": "2026-05-29",
+  "totalReturnLatestDate": "2026-05-29"
 }
