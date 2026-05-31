@@ -108,14 +108,14 @@ export function AlertSummary({
           </div>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-black/10 p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
+        <div className="grid content-start gap-3 border-t border-white/10 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
             <TrendingDown className="h-4 w-4 text-cyan-300" />
             可分享摘要
           </div>
-          <p className="min-h-20 text-sm leading-6 text-slate-300">{shareText}</p>
+          <p className="rounded-lg border border-white/10 bg-black/10 p-3 text-sm leading-6 text-slate-300">{shareText}</p>
           <button
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-600 bg-ink px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-400 hover:text-cyan-100"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-black/10 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-400 hover:text-cyan-100 sm:w-fit"
             type="button"
             onClick={copyShareText}
           >
