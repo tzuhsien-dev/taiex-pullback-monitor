@@ -1,4 +1,13 @@
-import type { ChartPoint, MarketPoint, PullbackParams, PullbackResult, PullbackStatus } from '../types';
+import type {
+  ChartPoint,
+  HistoricalPullbackBin,
+  HistoricalPullbackDistribution,
+  HistoricalPullbackPoint,
+  MarketPoint,
+  PullbackParams,
+  PullbackResult,
+  PullbackStatus,
+} from '../types';
 
 export const decimalToPercent = (value: number) => value * 100;
 
@@ -100,6 +109,75 @@ export const buildChartData = (result: PullbackResult): ChartPoint[] =>
     rollingLow: result.rollingLow,
     thresholdIndex: result.thresholdIndex,
   }));
+
+const distributionBins: Array<Omit<HistoricalPullbackBin, 'count' | 'reachedThreshold' | 'containsCurrent'>> = [
+  { label: '0-3%', min: 0, max: 0.03 },
+  { label: '3-5%', min: 0.03, max: 0.05 },
+  { label: '5-7%', min: 0.05, max: 0.07 },
+  { label: '7-10%', min: 0.07, max: 0.1 },
+  { label: '10-15%', min: 0.1, max: 0.15 },
+  { label: '15%+', min: 0.15, max: null },
+];
+
+const isDepthInBin = (depth: number, bin: Omit<HistoricalPullbackBin, 'count' | 'reachedThreshold' | 'containsCurrent'>) =>
+  depth >= bin.min && (bin.max === null || depth < bin.max);
+
+export const calculateHistoricalPullbackDistribution = (
+  points: MarketPoint[],
+  params: PullbackParams,
+  currentResult: PullbackResult,
+): HistoricalPullbackDistribution | null => {
+  const sorted = sortMarketData(validateMarketData(points));
+
+  if (sorted.length < params.lookbackDays) {
+    return null;
+  }
+
+  const samples: HistoricalPullbackPoint[] = sorted.slice(params.lookbackDays - 1).map((point, index) => {
+    const sourceIndex = index + params.lookbackDays - 1;
+    const windowPoints = sorted.slice(sourceIndex - params.lookbackDays + 1, sourceIndex + 1);
+    const high = getExtremePoint(windowPoints, 'max');
+    const pullback = point.index / high.index - 1;
+    const pullbackDepth = Math.max(0, -pullback);
+
+    return {
+      ...point,
+      rollingHigh: high.index,
+      pullback,
+      pullbackDepth,
+      reachedThreshold: pullbackDepth >= params.pullbackThreshold,
+    };
+  });
+
+  if (samples.length === 0) {
+    return null;
+  }
+
+  const currentDepth = Math.max(0, -currentResult.pullback);
+  const maxDepth = Math.max(...samples.map((sample) => sample.pullbackDepth));
+  const averageDepth = samples.reduce((sum, sample) => sum + sample.pullbackDepth, 0) / samples.length;
+  const percentile = samples.filter((sample) => sample.pullbackDepth <= currentDepth).length / samples.length;
+  const thresholdHitCount = samples.filter((sample) => sample.reachedThreshold).length;
+  const thresholdHitRate = thresholdHitCount / samples.length;
+  const bins = distributionBins.map((bin) => ({
+    ...bin,
+    count: samples.filter((sample) => isDepthInBin(sample.pullbackDepth, bin)).length,
+    reachedThreshold: bin.max === null ? bin.min >= params.pullbackThreshold : bin.max > params.pullbackThreshold,
+    containsCurrent: isDepthInBin(currentDepth, bin),
+  }));
+
+  return {
+    samples,
+    bins,
+    sampleCount: samples.length,
+    currentDepth,
+    maxDepth,
+    averageDepth,
+    percentile,
+    thresholdHitCount,
+    thresholdHitRate,
+  };
+};
 
 const addDays = (date: Date, days: number) => {
   const next = new Date(date);

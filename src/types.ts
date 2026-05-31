@@ -63,3 +63,31 @@ export type ChartPoint = MarketPoint & {
   rollingLow?: number;
   thresholdIndex?: number;
 };
+
+export type HistoricalPullbackPoint = MarketPoint & {
+  rollingHigh: number;
+  pullback: number;
+  pullbackDepth: number;
+  reachedThreshold: boolean;
+};
+
+export type HistoricalPullbackBin = {
+  label: string;
+  min: number;
+  max: number | null;
+  count: number;
+  reachedThreshold: boolean;
+  containsCurrent: boolean;
+};
+
+export type HistoricalPullbackDistribution = {
+  samples: HistoricalPullbackPoint[];
+  bins: HistoricalPullbackBin[];
+  sampleCount: number;
+  currentDepth: number;
+  maxDepth: number;
+  averageDepth: number;
+  percentile: number;
+  thresholdHitCount: number;
+  thresholdHitRate: number;
+};

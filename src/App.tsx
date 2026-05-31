@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertSummary } from './components/AlertSummary';
 import { DashboardCards } from './components/DashboardCards';
+import { HistoricalDistribution } from './components/HistoricalDistribution';
 import { IndexChart } from './components/IndexChart';
 import { InputPanel } from './components/InputPanel';
 import { RiskFooter } from './components/RiskFooter';
@@ -131,6 +132,7 @@ function App() {
         />
         <DashboardCards result={result} params={params} indexType={indexType} metadata={metadata} source={source} dataHealth={dataHealth} />
         <AlertSummary result={result} params={params} indexType={indexType} dataHealth={dataHealth} />
+        <HistoricalDistribution points={points} params={params} result={result} />
         <IndexChart result={result} />
       </main>
 
