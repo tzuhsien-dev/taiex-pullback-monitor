@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity } from 'lucide-react';
+import { AlertSummary } from './components/AlertSummary';
 import { DashboardCards } from './components/DashboardCards';
 import { IndexChart } from './components/IndexChart';
 import { InputPanel } from './components/InputPanel';
@@ -134,6 +135,7 @@ function App() {
           onReloadStaticData={() => setReloadKey((value) => value + 1)}
         />
         <DashboardCards result={result} params={params} indexType={indexType} metadata={metadata} source={source} dataHealth={dataHealth} />
+        <AlertSummary result={result} params={params} indexType={indexType} dataHealth={dataHealth} />
         <IndexChart result={result} />
       </main>
 
