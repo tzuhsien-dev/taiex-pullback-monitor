@@ -87,9 +87,9 @@ date,index
 
 - 最新指數：`currentIndex = 最新一筆資料的 index`
 - 近期高點：`rollingHigh = 最近 N 筆資料中的最大 index`
-- 近期低點：`rollingLow = 最近 N 筆資料中的最小 index`
+- 回落後低點：若近期高點不是最新日，取近期高點後到最新日之間的最低點；若最新日創高，取最新日前最多 10 筆交易日內低於最新指數的最低點
 - 相對近期高點回落：`pullback = currentIndex / rollingHigh - 1`
-- 相對近期低點反彈：`reboundFromLow = currentIndex / rollingLow - 1`
+- 相對回落後低點反彈：`reboundFromLow = currentIndex / rollingLow - 1`
 - 門檻點位：`thresholdIndex = rollingHigh * (1 - pullbackThreshold)`
 - 距離門檻點數：`distanceToThresholdPoints = currentIndex - thresholdIndex`
 - 距離門檻百分比：`distanceToThresholdPercent = currentIndex / thresholdIndex - 1`

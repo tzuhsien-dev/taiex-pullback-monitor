@@ -110,9 +110,9 @@ export function DashboardCards({
         <MetricCard label="觀察期 N 日" value={`${params.lookbackDays}`} />
         <MetricCard label="最終狀態" value={result.statusText} tone={pullbackTone} />
         <MetricCard label="近期高點" value={formatNumber(result.rollingHigh)} detail={result.rollingHighDate} />
-        <MetricCard label="近期低點" value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
+        <MetricCard label="回落後低點" value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
         <MetricCard label="從近期高點回落" value={`回落 ${formatPercent(result.pullback)}`} tone={pullbackTone} />
-        <MetricCard label="從近期低點反彈" value={formatSignedPercent(result.reboundFromLow)} tone="success" />
+        <MetricCard label="從回落後低點反彈" value={formatSignedPercent(result.reboundFromLow)} tone="success" />
         <MetricCard label="回落門檻" value={formatPercent(params.pullbackThreshold)} />
         <MetricCard label="門檻點位" value={formatNumber(result.thresholdIndex)} />
         <MetricCard

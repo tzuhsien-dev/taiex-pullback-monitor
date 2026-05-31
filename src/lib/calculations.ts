@@ -56,6 +56,27 @@ const getExtremePoint = (points: MarketPoint[], mode: 'max' | 'min') => {
   }, points[0]);
 };
 
+const recentSwingLowDays = 10;
+
+const getPullbackLowPoint = (lookbackData: MarketPoint[], high: MarketPoint, latest: MarketPoint) => {
+  const highIndex = lookbackData.findIndex((point) => point.date === high.date && point.index === high.index);
+  const latestIndex = lookbackData.length - 1;
+
+  if (highIndex >= 0 && highIndex < latestIndex) {
+    return getExtremePoint(lookbackData.slice(highIndex, latestIndex + 1), 'min');
+  }
+
+  const recentCandidates = lookbackData
+    .slice(Math.max(0, latestIndex - recentSwingLowDays), latestIndex)
+    .filter((point) => point.index < latest.index);
+
+  if (recentCandidates.length > 0) {
+    return getExtremePoint(recentCandidates, 'min');
+  }
+
+  return latest;
+};
+
 export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult => {
   const sorted = sortMarketData(validateMarketData(points));
 
@@ -66,7 +87,7 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
   const lookbackData = sorted.slice(Math.max(0, sorted.length - params.lookbackDays));
   const latest = sorted[sorted.length - 1];
   const high = getExtremePoint(lookbackData, 'max');
-  const low = getExtremePoint(lookbackData, 'min');
+  const low = getPullbackLowPoint(lookbackData, high, latest);
   const pullback = latest.index / high.index - 1;
   const reboundFromLow = latest.index / low.index - 1;
   const thresholdIndex = high.index * (1 - params.pullbackThreshold);
