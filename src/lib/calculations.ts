@@ -76,8 +76,14 @@ const calculateVolatilityThreshold = (points: MarketPoint[], params: PullbackPar
   return clamp(avgAbsReturn * params.volatilityMultiplier, params.minThreshold, params.maxThreshold);
 };
 
-const calculateConfirmedZigZagPivots = (points: MarketPoint[], pivotThreshold: number): PivotPoint[] => {
-  if (points.length < 2) return [];
+const calculateZigZagState = (points: MarketPoint[], pivotThreshold: number) => {
+  if (points.length < 2) {
+    return {
+      confirmedPivots: [] as PivotPoint[],
+      trackingHigh: points[0],
+      trackingLow: points[0],
+    };
+  }
 
   const pivots: PivotPoint[] = [];
   let trend: 'unknown' | 'up' | 'down' = 'unknown';
@@ -119,7 +125,11 @@ const calculateConfirmedZigZagPivots = (points: MarketPoint[], pivotThreshold: n
     }
   });
 
-  return pivots;
+  return {
+    confirmedPivots: pivots,
+    trackingHigh: candidateHigh,
+    trackingLow: candidateLow,
+  };
 };
 
 export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult => {
@@ -133,11 +143,10 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
   const latest = sorted[sorted.length - 1];
   const pivotThresholdUsed =
     params.highLowMode === 'volatilityAdjustedZigZag' ? calculateVolatilityThreshold(lookbackData, params) : params.highLowMode === 'zigzag' ? params.pivotThreshold : null;
-  const confirmedPivots = pivotThresholdUsed === null ? [] : calculateConfirmedZigZagPivots(lookbackData, pivotThresholdUsed);
-  const lastConfirmedHigh = [...confirmedPivots].reverse().find((point) => point.type === 'high');
-  const lastConfirmedLow = [...confirmedPivots].reverse().find((point) => point.type === 'low');
-  const high = params.highLowMode === 'rolling' || !lastConfirmedHigh ? getExtremePoint(lookbackData, 'max') : lastConfirmedHigh;
-  const low = params.highLowMode === 'rolling' || !lastConfirmedLow ? getExtremePoint(lookbackData, 'min') : lastConfirmedLow;
+  const zigZagState = pivotThresholdUsed === null ? null : calculateZigZagState(lookbackData, pivotThresholdUsed);
+  const confirmedPivots = zigZagState?.confirmedPivots ?? [];
+  const high = params.highLowMode === 'rolling' ? getExtremePoint(lookbackData, 'max') : (zigZagState?.trackingHigh ?? getExtremePoint(lookbackData, 'max'));
+  const low = params.highLowMode === 'rolling' ? getExtremePoint(lookbackData, 'min') : (zigZagState?.trackingLow ?? getExtremePoint(lookbackData, 'min'));
   const pullback = latest.index / high.index - 1;
   const reboundFromLow = latest.index / low.index - 1;
   const thresholdIndex = high.index * (1 - params.pullbackThreshold);

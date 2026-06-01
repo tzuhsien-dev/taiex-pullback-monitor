@@ -22,6 +22,8 @@ const outputDir = path.resolve('public/data');
 const maxTradingDays = 1000;
 const monthsBack = 60;
 const minTradingDays = 250;
+const requestDelayMs = 180;
+const maxFetchAttempts = 4;
 
 const addMonths = (date: Date, months: number) => {
   const next = new Date(date);
@@ -61,30 +63,48 @@ const findFieldIndex = (fields: string[], candidates: string[]) => {
   return index;
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const fetchMonth = async (endpoint: string, month: Date, kind: 'price' | 'totalReturn') => {
   const url = `${endpoint}?response=json&date=${toMonthParam(month)}`;
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'taiex-pullback-monitor/1.0',
-    },
-  });
 
-  if (!response.ok) {
-    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE request failed ${response.status} ${url}`);
+  for (let attempt = 1; attempt <= maxFetchAttempts; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'taiex-pullback-monitor/1.0',
+      },
+    });
+
+    if (!response.ok) {
+      if (attempt === maxFetchAttempts) {
+        throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE request failed ${response.status} ${url}`);
+      }
+
+      await sleep(requestDelayMs * attempt);
+      continue;
+    }
+
+    const payload = (await response.json()) as TwsePayload;
+
+    if (payload.stat !== 'OK') {
+      if (attempt === maxFetchAttempts) {
+        throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE stat is not OK (${payload.stat ?? 'missing stat'})`);
+      }
+
+      console.warn(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE stat is not OK (${payload.stat ?? 'missing stat'}), retry ${attempt}/${maxFetchAttempts}`);
+      await sleep(requestDelayMs * attempt);
+      continue;
+    }
+
+    if (!Array.isArray(payload.fields) || !Array.isArray(payload.data)) {
+      throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE response format changed, missing fields/data`);
+    }
+
+    return payload;
   }
 
-  const payload = (await response.json()) as TwsePayload;
-
-  if (payload.stat !== 'OK') {
-    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE stat is not OK (${payload.stat ?? 'missing stat'})`);
-  }
-
-  if (!Array.isArray(payload.fields) || !Array.isArray(payload.data)) {
-    throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE response format changed, missing fields/data`);
-  }
-
-  return payload;
+  throw new Error(`${indexLabel[kind]} ${toMonthParam(month)}: TWSE request failed after ${maxFetchAttempts} attempts`);
 };
 
 const parsePayload = (payload: TwsePayload, kind: 'price' | 'totalReturn', month: Date) => {
@@ -156,6 +176,7 @@ const fetchIndexData = async (kind: 'price' | 'totalReturn') => {
   for (const month of months) {
     const payload = await fetchMonth(endpoints[kind], month, kind);
     points.push(...parsePayload(payload, kind, month));
+    await sleep(requestDelayMs);
   }
 
   const unique = new Map(points.map((point) => [point.date, point]));
@@ -178,7 +199,8 @@ const writeJson = async (filename: string, value: unknown) => {
 const main = async () => {
   await mkdir(outputDir, { recursive: true });
 
-  const [priceData, totalReturnData] = await Promise.all([fetchIndexData('price'), fetchIndexData('totalReturn')]);
+  const priceData = await fetchIndexData('price');
+  const totalReturnData = await fetchIndexData('totalReturn');
   const lastUpdated = new Intl.DateTimeFormat('sv-SE', {
     timeZone: 'Asia/Taipei',
     year: 'numeric',

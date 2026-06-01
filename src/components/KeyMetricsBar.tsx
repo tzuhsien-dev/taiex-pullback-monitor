@@ -13,6 +13,18 @@ const modeLabel = {
   volatilityAdjustedZigZag: '波動 ZigZag',
 };
 
+const highMetricLabel = {
+  rolling: 'N 日高點',
+  zigzag: '追蹤高點',
+  volatilityAdjustedZigZag: '追蹤高點',
+};
+
+const lowMetricLabel = {
+  rolling: 'N 日低點',
+  zigzag: '追蹤低點',
+  volatilityAdjustedZigZag: '追蹤低點',
+};
+
 function MetricItem({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <div className="min-w-0">
@@ -60,8 +72,8 @@ export function KeyMetricsBar({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <MetricItem label="目前指數" value={formatNumber(result.currentIndex)} detail={result.latestDate} />
-        <MetricItem label="近期高點" value={formatNumber(result.rollingHigh)} detail={result.rollingHighDate} />
-        <MetricItem label="近期低點" value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
+        <MetricItem label={highMetricLabel[result.highLowMode]} value={formatNumber(result.rollingHigh)} detail={result.rollingHighDate} />
+        <MetricItem label={lowMetricLabel[result.highLowMode]} value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
         <MetricItem label="高點回落" value={`回落 ${formatPercent(result.pullback)}`} />
         <MetricItem label="低點反彈" value={formatSignedPercent(result.reboundFromLow)} />
         <MetricItem label="門檻距離" value={`${formatNumber(result.distanceToThresholdPoints)} 點`} detail={formatSignedPercent(result.distanceToThresholdPercent)} />

@@ -31,6 +31,7 @@ export function AlertSummary({
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const tone = getTone(result, dataHealth);
   const hasReachedThreshold = result.distanceToThresholdPoints <= 0;
+  const highLabel = result.highLowMode === 'rolling' ? '近期高點' : '追蹤高點';
   const headline =
     dataHealth.status !== 'healthy'
       ? dataHealth.label
@@ -102,7 +103,7 @@ export function AlertSummary({
 
         <div className="grid gap-3 sm:grid-cols-3 lg:w-[560px] lg:max-w-[48%]">
           <div className="rounded-lg border border-white/10 bg-black/10 p-3">
-            <div className="text-xs text-slate-400">近期高點</div>
+            <div className="text-xs text-slate-400">{highLabel}</div>
             <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.rollingHigh)}</div>
             <div className="text-xs text-slate-500">{result.rollingHighDate}</div>
           </div>
