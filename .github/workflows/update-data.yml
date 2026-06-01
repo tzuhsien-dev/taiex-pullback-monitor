@@ -2,7 +2,7 @@ name: Update TWSE data
 
 on:
   schedule:
-    - cron: '26 14 * * 1-5'
+    - cron: '17 11 * * 1-5'
   workflow_dispatch:
 
 permissions:
