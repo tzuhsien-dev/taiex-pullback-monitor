@@ -9,6 +9,12 @@ const indexLabel: Record<IndexType, string> = {
   totalReturn: '加權報酬指數',
 };
 
+const modeLabel = {
+  rolling: '固定期間高低點',
+  zigzag: 'ZigZag 波段高低點',
+  volatilityAdjustedZigZag: '波動度調整 ZigZag',
+};
+
 function MetricCard({
   label,
   value,
@@ -100,6 +106,8 @@ export function DashboardCards({
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="指數類型" value={indexLabel[indexType]} />
+        <MetricCard label="高低點模式" value={modeLabel[result.highLowMode]} />
+        <MetricCard label="實際 Pivot 門檻" value={result.pivotThresholdUsed === null ? '不適用' : formatPercent(result.pivotThresholdUsed)} />
         <MetricCard
           label="資料健康狀態"
           value={dataHealth.label}
@@ -110,9 +118,9 @@ export function DashboardCards({
         <MetricCard label="觀察期 N 日" value={`${params.lookbackDays}`} />
         <MetricCard label="最終狀態" value={result.statusText} tone={pullbackTone} />
         <MetricCard label="近期高點" value={formatNumber(result.rollingHigh)} detail={result.rollingHighDate} />
-        <MetricCard label="回落後低點" value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
+        <MetricCard label={result.highLowMode === 'rolling' ? '近期低點' : '近期波段低點'} value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
         <MetricCard label="從近期高點回落" value={`回落 ${formatPercent(result.pullback)}`} tone={pullbackTone} />
-        <MetricCard label="從回落後低點反彈" value={formatSignedPercent(result.reboundFromLow)} tone="success" />
+        <MetricCard label="從近期低點反彈" value={formatSignedPercent(result.reboundFromLow)} tone="success" />
         <MetricCard label="回落門檻" value={formatPercent(params.pullbackThreshold)} />
         <MetricCard label="門檻點位" value={formatNumber(result.thresholdIndex)} />
         <MetricCard

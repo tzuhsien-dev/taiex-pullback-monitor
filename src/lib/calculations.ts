@@ -4,6 +4,7 @@ import type {
   HistoricalPullbackDistribution,
   HistoricalPullbackPoint,
   MarketPoint,
+  PivotPoint,
   PullbackParams,
   PullbackResult,
   PullbackStatus,
@@ -56,25 +57,69 @@ const getExtremePoint = (points: MarketPoint[], mode: 'max' | 'min') => {
   }, points[0]);
 };
 
-const recentSwingLowDays = 10;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const getPullbackLowPoint = (lookbackData: MarketPoint[], high: MarketPoint, latest: MarketPoint) => {
-  const highIndex = lookbackData.findIndex((point) => point.date === high.date && point.index === high.index);
-  const latestIndex = lookbackData.length - 1;
+const calculateVolatilityThreshold = (points: MarketPoint[], params: PullbackParams) => {
+  const returns = points
+    .slice(Math.max(1, points.length - params.volLookback))
+    .map((point, index, values) => {
+      const previous = index === 0 ? points[points.length - values.length - 1] : values[index - 1];
+      return previous ? Math.abs(point.index / previous.index - 1) : 0;
+    })
+    .filter(Number.isFinite);
 
-  if (highIndex >= 0 && highIndex < latestIndex) {
-    return getExtremePoint(lookbackData.slice(highIndex, latestIndex + 1), 'min');
+  if (returns.length === 0) {
+    return params.minThreshold;
   }
 
-  const recentCandidates = lookbackData
-    .slice(Math.max(0, latestIndex - recentSwingLowDays), latestIndex)
-    .filter((point) => point.index < latest.index);
+  const avgAbsReturn = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+  return clamp(avgAbsReturn * params.volatilityMultiplier, params.minThreshold, params.maxThreshold);
+};
 
-  if (recentCandidates.length > 0) {
-    return getExtremePoint(recentCandidates, 'min');
-  }
+const calculateConfirmedZigZagPivots = (points: MarketPoint[], pivotThreshold: number): PivotPoint[] => {
+  if (points.length < 2) return [];
 
-  return latest;
+  const pivots: PivotPoint[] = [];
+  let trend: 'unknown' | 'up' | 'down' = 'unknown';
+  let candidateHigh = points[0];
+  let candidateLow = points[0];
+
+  points.slice(1).forEach((point) => {
+    if (trend === 'unknown') {
+      if (point.index > candidateHigh.index) candidateHigh = point;
+      if (point.index < candidateLow.index) candidateLow = point;
+
+      if (point.index <= candidateHigh.index * (1 - pivotThreshold)) {
+        pivots.push({ ...candidateHigh, type: 'high' });
+        trend = 'down';
+        candidateLow = point;
+      } else if (point.index >= candidateLow.index * (1 + pivotThreshold)) {
+        pivots.push({ ...candidateLow, type: 'low' });
+        trend = 'up';
+        candidateHigh = point;
+      }
+      return;
+    }
+
+    if (trend === 'up') {
+      if (point.index > candidateHigh.index) candidateHigh = point;
+      if (point.index <= candidateHigh.index * (1 - pivotThreshold)) {
+        pivots.push({ ...candidateHigh, type: 'high' });
+        trend = 'down';
+        candidateLow = point;
+      }
+      return;
+    }
+
+    if (point.index < candidateLow.index) candidateLow = point;
+    if (point.index >= candidateLow.index * (1 + pivotThreshold)) {
+      pivots.push({ ...candidateLow, type: 'low' });
+      trend = 'up';
+      candidateHigh = point;
+    }
+  });
+
+  return pivots;
 };
 
 export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult => {
@@ -86,8 +131,13 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
 
   const lookbackData = sorted.slice(Math.max(0, sorted.length - params.lookbackDays));
   const latest = sorted[sorted.length - 1];
-  const high = getExtremePoint(lookbackData, 'max');
-  const low = getPullbackLowPoint(lookbackData, high, latest);
+  const pivotThresholdUsed =
+    params.highLowMode === 'volatilityAdjustedZigZag' ? calculateVolatilityThreshold(lookbackData, params) : params.highLowMode === 'zigzag' ? params.pivotThreshold : null;
+  const confirmedPivots = pivotThresholdUsed === null ? [] : calculateConfirmedZigZagPivots(lookbackData, pivotThresholdUsed);
+  const lastConfirmedHigh = [...confirmedPivots].reverse().find((point) => point.type === 'high');
+  const lastConfirmedLow = [...confirmedPivots].reverse().find((point) => point.type === 'low');
+  const high = params.highLowMode === 'rolling' || !lastConfirmedHigh ? getExtremePoint(lookbackData, 'max') : lastConfirmedHigh;
+  const low = params.highLowMode === 'rolling' || !lastConfirmedLow ? getExtremePoint(lookbackData, 'min') : lastConfirmedLow;
   const pullback = latest.index / high.index - 1;
   const reboundFromLow = latest.index / low.index - 1;
   const thresholdIndex = high.index * (1 - params.pullbackThreshold);
@@ -108,10 +158,13 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
   return {
     latestDate: latest.date,
     currentIndex: latest.index,
+    highLowMode: params.highLowMode,
+    pivotThresholdUsed,
     rollingHigh: high.index,
     rollingHighDate: high.date,
     rollingLow: low.index,
     rollingLowDate: low.date,
+    confirmedPivots,
     pullback,
     reboundFromLow,
     thresholdIndex,
@@ -156,15 +209,13 @@ export const calculateHistoricalPullbackDistribution = (
 
   const samples: HistoricalPullbackPoint[] = sorted.slice(params.lookbackDays - 1).map((point, index) => {
     const sourceIndex = index + params.lookbackDays - 1;
-    const windowPoints = sorted.slice(sourceIndex - params.lookbackDays + 1, sourceIndex + 1);
-    const high = getExtremePoint(windowPoints, 'max');
-    const pullback = point.index / high.index - 1;
-    const pullbackDepth = Math.max(0, -pullback);
+    const result = calculatePullback(sorted.slice(0, sourceIndex + 1), params);
+    const pullbackDepth = Math.max(0, -result.pullback);
 
     return {
       ...point,
-      rollingHigh: high.index,
-      pullback,
+      rollingHigh: result.rollingHigh,
+      pullback: result.pullback,
       pullbackDepth,
       reachedThreshold: pullbackDepth >= params.pullbackThreshold,
     };

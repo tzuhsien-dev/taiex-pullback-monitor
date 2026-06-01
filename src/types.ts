@@ -34,20 +34,35 @@ export type DataHealth = {
 };
 
 export type PullbackParams = {
+  highLowMode: HighLowMode;
   lookbackDays: number;
   pullbackThreshold: number;
   nearThreshold: number;
+  pivotThreshold: number;
+  volLookback: number;
+  volatilityMultiplier: number;
+  minThreshold: number;
+  maxThreshold: number;
 };
 
+export type HighLowMode = 'rolling' | 'zigzag' | 'volatilityAdjustedZigZag';
+
 export type PullbackStatus = 'triggered' | 'near' | 'normal';
+
+export type PivotPoint = MarketPoint & {
+  type: 'high' | 'low';
+};
 
 export type PullbackResult = {
   latestDate: string;
   currentIndex: number;
+  highLowMode: HighLowMode;
+  pivotThresholdUsed: number | null;
   rollingHigh: number;
   rollingHighDate: string;
   rollingLow: number;
   rollingLowDate: string;
+  confirmedPivots: PivotPoint[];
   pullback: number;
   reboundFromLow: number;
   thresholdIndex: number;

@@ -1,5 +1,5 @@
 import { RefreshCcw, Upload } from 'lucide-react';
-import type { IndexType, PullbackParams } from '../types';
+import type { HighLowMode, IndexType, PullbackParams } from '../types';
 import { Field, inputClass } from './Field';
 
 type InputPanelProps = {
@@ -23,10 +23,22 @@ export function InputPanel({
   onCsvUpload,
   onReloadStaticData,
 }: InputPanelProps) {
-  const updateParam = (key: keyof PullbackParams, value: string) => {
+  const updateNumberParam = (key: keyof PullbackParams, value: string) => {
     onParamsChange({
       ...params,
-      [key]: key === 'lookbackDays' ? Number(value) : Number(value) / 100,
+      [key]: Number(value),
+    });
+  };
+  const updatePercentParam = (key: keyof PullbackParams, value: string) => {
+    onParamsChange({
+      ...params,
+      [key]: Number(value) / 100,
+    });
+  };
+  const updateMode = (highLowMode: HighLowMode) => {
+    onParamsChange({
+      ...params,
+      highLowMode,
     });
   };
 
@@ -51,16 +63,50 @@ export function InputPanel({
             <option value="totalReturn">加權報酬指數</option>
           </select>
         </Field>
+        <Field label="近期高低點判定模式">
+          <select className={inputClass} value={params.highLowMode} onChange={(event) => updateMode(event.target.value as HighLowMode)}>
+            <option value="rolling">固定期間高低點</option>
+            <option value="zigzag">ZigZag 波段高低點</option>
+            <option value="volatilityAdjustedZigZag">波動度調整 ZigZag</option>
+          </select>
+        </Field>
         <Field label="觀察期 N 日">
-          <input className={inputClass} min="5" type="number" value={params.lookbackDays} onChange={(event) => updateParam('lookbackDays', event.target.value)} />
+          <input className={inputClass} min="5" type="number" value={params.lookbackDays} onChange={(event) => updateNumberParam('lookbackDays', event.target.value)} />
         </Field>
         <Field label="回落門檻 %">
-          <input className={inputClass} min="0" step="0.1" type="number" value={params.pullbackThreshold * 100} onChange={(event) => updateParam('pullbackThreshold', event.target.value)} />
+          <input className={inputClass} min="0" step="0.1" type="number" value={params.pullbackThreshold * 100} onChange={(event) => updatePercentParam('pullbackThreshold', event.target.value)} />
         </Field>
         <Field label="接近門檻提示 %">
-          <input className={inputClass} min="0" step="0.1" type="number" value={params.nearThreshold * 100} onChange={(event) => updateParam('nearThreshold', event.target.value)} />
+          <input className={inputClass} min="0" step="0.1" type="number" value={params.nearThreshold * 100} onChange={(event) => updatePercentParam('nearThreshold', event.target.value)} />
         </Field>
+        {params.highLowMode === 'zigzag' ? (
+          <Field label="ZigZag 確認門檻 %">
+            <input className={inputClass} min="0.1" step="0.1" type="number" value={params.pivotThreshold * 100} onChange={(event) => updatePercentParam('pivotThreshold', event.target.value)} />
+          </Field>
+        ) : null}
+        {params.highLowMode === 'volatilityAdjustedZigZag' ? (
+          <>
+            <Field label="波動度觀察日數">
+              <input className={inputClass} min="2" type="number" value={params.volLookback} onChange={(event) => updateNumberParam('volLookback', event.target.value)} />
+            </Field>
+            <Field label="波動度倍數">
+              <input className={inputClass} min="0.1" step="0.1" type="number" value={params.volatilityMultiplier} onChange={(event) => updateNumberParam('volatilityMultiplier', event.target.value)} />
+            </Field>
+            <Field label="自動門檻下限 %">
+              <input className={inputClass} min="0" step="0.1" type="number" value={params.minThreshold * 100} onChange={(event) => updatePercentParam('minThreshold', event.target.value)} />
+            </Field>
+            <Field label="自動門檻上限 %">
+              <input className={inputClass} min="0" step="0.1" type="number" value={params.maxThreshold * 100} onChange={(event) => updatePercentParam('maxThreshold', event.target.value)} />
+            </Field>
+          </>
+        ) : null}
       </div>
+
+      {params.highLowMode !== 'rolling' ? (
+        <p className="mt-4 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+          ZigZag 高低點需要等價格反向移動超過門檻後才會確認，因此不會在轉折當下即時確認。
+        </p>
+      ) : null}
 
       <div className="mt-5">
         <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-600 bg-ink px-4 py-6 text-center transition hover:border-cyan-400 hover:bg-cyan-400/5">

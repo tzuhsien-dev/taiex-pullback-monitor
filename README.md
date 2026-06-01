@@ -79,17 +79,26 @@ date,index
 2024-01-02,18120
 ```
 
-## 近期高點不是歷史高點
+## 近期高低點判定模式
 
-本工具計算的是使用者指定觀察期 N 筆交易日內的最高點，例如 60 日、120 日、250 日高點，不是台股歷史最高點。
+本工具支援三種近期高低點判定方式：
+
+- 固定期間高低點：近期高點與近期低點分別是最近 N 筆資料中的最大值與最小值。
+- ZigZag 波段高低點：價格反向移動超過使用者設定的 pivot threshold 後，才確認波段高點或低點。
+- 波動度調整 ZigZag：用最近 `volLookback` 日平均絕對日報酬乘上倍數，自動產生 pivot threshold，並限制在 min/max threshold 之間。
+
+ZigZag 高低點需要等價格反向移動超過門檻後才會確認，因此不會在轉折當下即時確認。
 
 ## 公式
 
 - 最新指數：`currentIndex = 最新一筆資料的 index`
-- 近期高點：`rollingHigh = 最近 N 筆資料中的最大 index`
-- 回落後低點：若近期高點不是最新日，取近期高點後到最新日之間的最低點；若最新日創高，取最新日前最多 10 筆交易日內低於最新指數的最低點
+- 固定期間近期高點：`rollingHigh = 最近 N 筆資料中的最大 index`
+- 固定期間近期低點：`rollingLow = 最近 N 筆資料中的最小 index`
+- ZigZag 近期高點：最近一次已確認波段高點
+- ZigZag 近期低點：最近一次已確認波段低點
+- 波動度調整門檻：`pivotThreshold = clamp(avgAbsReturn * multiplier, minThreshold, maxThreshold)`
 - 相對近期高點回落：`pullback = currentIndex / rollingHigh - 1`
-- 相對回落後低點反彈：`reboundFromLow = currentIndex / rollingLow - 1`
+- 相對近期低點反彈：`reboundFromLow = currentIndex / rollingLow - 1`
 - 門檻點位：`thresholdIndex = rollingHigh * (1 - pullbackThreshold)`
 - 距離門檻點數：`distanceToThresholdPoints = currentIndex - thresholdIndex`
 - 距離門檻百分比：`distanceToThresholdPercent = currentIndex / thresholdIndex - 1`
