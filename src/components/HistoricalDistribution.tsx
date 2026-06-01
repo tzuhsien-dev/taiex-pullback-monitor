@@ -26,7 +26,7 @@ export function HistoricalDistribution({
   if (!distribution) {
     return (
       <section className="rounded-lg border border-slate-800 bg-panel p-5 shadow-xl shadow-black/20">
-        <h2 className="text-lg font-semibold text-white">歷史回落分布</h2>
+        <h2 className="text-lg font-semibold text-white">歷史脈絡</h2>
         <p className="mt-2 text-sm text-slate-400">
           資料筆數少於目前觀察期 {params.lookbackDays} 日，無法計算歷史分布。請降低觀察期或上傳更多 CSV 資料。
         </p>
@@ -38,9 +38,9 @@ export function HistoricalDistribution({
     <section className="rounded-lg border border-slate-800 bg-panel p-5 shadow-xl shadow-black/20">
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">歷史回落分布</h2>
+          <h2 className="text-lg font-semibold text-white">歷史脈絡</h2>
           <p className="mt-1 text-sm text-slate-500">
-            以最近 {params.lookbackDays} 筆交易日為滾動高點，逐日計算相對高點回落幅度。
+            以目前高低點模式逐日計算回落幅度，提供歷史分布參考。
           </p>
         </div>
         <div className="text-sm text-slate-400 lg:text-right">

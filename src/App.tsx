@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertSummary } from './components/AlertSummary';
-import { DashboardCards } from './components/DashboardCards';
 import { HistoricalDistribution } from './components/HistoricalDistribution';
 import { IndexChart } from './components/IndexChart';
 import { InputPanel } from './components/InputPanel';
+import { KeyMetricsBar } from './components/KeyMetricsBar';
 import { RiskFooter } from './components/RiskFooter';
 import { calculatePullback, sampleData } from './lib/calculations';
 import { parseMarketCsv } from './lib/csv';
@@ -126,6 +126,9 @@ function App() {
       </header>
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6">
+        <AlertSummary result={result} params={params} indexType={indexType} dataHealth={dataHealth} />
+        <IndexChart result={result} />
+        <KeyMetricsBar result={result} indexType={indexType} metadata={metadata} dataHealth={dataHealth} />
         <InputPanel
           csvError={csvError}
           dataError={dataError}
@@ -136,10 +139,7 @@ function App() {
           onParamsChange={setParams}
           onReloadStaticData={() => setReloadKey((value) => value + 1)}
         />
-        <DashboardCards result={result} params={params} indexType={indexType} metadata={metadata} source={source} dataHealth={dataHealth} />
-        <AlertSummary result={result} params={params} indexType={indexType} dataHealth={dataHealth} />
         <HistoricalDistribution points={points} params={params} result={result} />
-        <IndexChart result={result} />
       </main>
 
       <RiskFooter />

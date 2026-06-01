@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Gauge, ShieldAlert, TrendingDown } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Gauge, ShieldAlert } from 'lucide-react';
 import type { DataHealth, IndexType, PullbackParams, PullbackResult } from '../types';
 import { formatNumber, formatPercent, formatSignedPercent } from '../lib/calculations';
 
@@ -80,48 +80,42 @@ export function AlertSummary({
 
   return (
     <section className={`rounded-lg border p-5 shadow-xl shadow-black/20 ${toneClass}`}>
-      <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
-        <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-current/20 bg-black/10 px-3 py-1 text-sm font-semibold">
-            <Icon className="h-4 w-4" />
-            監控提醒
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-md border border-current/20 bg-black/10 px-3 py-1 text-sm font-semibold">
+              <Icon className="h-4 w-4" />
+              監控提醒
+            </span>
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-400 hover:text-cyan-100"
+              type="button"
+              onClick={copyShareText}
+            >
+              {copyState === 'copied' ? <ClipboardCheck className="h-4 w-4 text-emerald-300" /> : <Clipboard className="h-4 w-4" />}
+              {copyState === 'copied' ? '已複製' : copyState === 'failed' ? '複製失敗' : '複製摘要'}
+            </button>
           </div>
           <h2 className="text-2xl font-semibold text-white">{headline}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
-              <div className="text-xs text-slate-400">近期高點</div>
-              <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.rollingHigh)}</div>
-              <div className="text-xs text-slate-500">{result.rollingHighDate}</div>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
-              <div className="text-xs text-slate-400">回落門檻點位</div>
-              <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.thresholdIndex)}</div>
-              <div className="text-xs text-slate-500">{formatPercent(params.pullbackThreshold)}</div>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/10 p-3">
-              <div className="text-xs text-slate-400">{hasReachedThreshold ? '已低於門檻' : '距離門檻還差'}</div>
-              <div className="mt-1 text-lg font-semibold text-white">{formatNumber(Math.abs(result.distanceToThresholdPoints))} 點</div>
-              <div className="text-xs text-slate-500">{formatSignedPercent(result.distanceToThresholdPercent)}</div>
-            </div>
-          </div>
         </div>
 
-        <div className="grid content-start gap-3 border-t border-white/10 pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <TrendingDown className="h-4 w-4 text-cyan-300" />
-            可分享摘要
+        <div className="grid gap-3 sm:grid-cols-3 lg:w-[560px] lg:max-w-[48%]">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-xs text-slate-400">近期高點</div>
+            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.rollingHigh)}</div>
+            <div className="text-xs text-slate-500">{result.rollingHighDate}</div>
           </div>
-          <p className="rounded-lg border border-white/10 bg-black/10 p-3 text-sm leading-6 text-slate-300">{shareText}</p>
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-black/10 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-400 hover:text-cyan-100 sm:w-fit"
-            type="button"
-            onClick={copyShareText}
-          >
-            {copyState === 'copied' ? <ClipboardCheck className="h-4 w-4 text-emerald-300" /> : <Clipboard className="h-4 w-4" />}
-            {copyState === 'copied' ? '已複製' : copyState === 'failed' ? '複製失敗，請手動選取' : '複製摘要'}
-          </button>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-xs text-slate-400">回落門檻點位</div>
+            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.thresholdIndex)}</div>
+            <div className="text-xs text-slate-500">{formatPercent(params.pullbackThreshold)}</div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+            <div className="text-xs text-slate-400">{hasReachedThreshold ? '已低於門檻' : '距離門檻還差'}</div>
+            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(Math.abs(result.distanceToThresholdPoints))} 點</div>
+            <div className="text-xs text-slate-500">{formatSignedPercent(result.distanceToThresholdPercent)}</div>
+          </div>
         </div>
       </div>
     </section>
