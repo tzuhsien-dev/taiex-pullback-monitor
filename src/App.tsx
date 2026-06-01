@@ -11,7 +11,7 @@ import { loadMarketData } from './lib/loadData';
 import type { DataHealth, DataSource, IndexType, MarketMetadata, MarketPoint, PullbackParams } from './types';
 
 const initialParams: PullbackParams = {
-  highLowMode: 'rolling',
+  highLowMode: 'volatilityAdjustedZigZag',
   lookbackDays: 250,
   pullbackThreshold: 0.1,
   nearThreshold: 0.07,
