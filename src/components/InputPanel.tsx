@@ -1,4 +1,4 @@
-import { RefreshCcw, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import type { HighLowMode, IndexType, PullbackParams } from '../types';
 import { Field, inputClass } from './Field';
 
@@ -10,7 +10,6 @@ type InputPanelProps = {
   onIndexTypeChange: (indexType: IndexType) => void;
   onParamsChange: (params: PullbackParams) => void;
   onCsvUpload: (content: string) => void;
-  onReloadStaticData: () => void;
 };
 
 export function InputPanel({
@@ -21,7 +20,6 @@ export function InputPanel({
   onIndexTypeChange,
   onParamsChange,
   onCsvUpload,
-  onReloadStaticData,
 }: InputPanelProps) {
   const updateNumberParam = (key: keyof PullbackParams, value: string) => {
     onParamsChange({
@@ -46,14 +44,6 @@ export function InputPanel({
     <section className="rounded-lg border border-slate-800 bg-panel p-4 shadow-xl shadow-black/20">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-white">設定</h2>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-700 bg-ink px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-400 hover:text-cyan-100"
-          type="button"
-          onClick={onReloadStaticData}
-        >
-          <RefreshCcw className="h-4 w-4" />
-          重新載入靜態資料
-        </button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

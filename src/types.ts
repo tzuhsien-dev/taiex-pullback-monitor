@@ -5,7 +5,7 @@ export type MarketPoint = {
 
 export type IndexType = 'price' | 'totalReturn';
 
-export type DataSource = 'actions' | 'csv' | 'sample';
+export type DataSource = 'static' | 'storage' | 'csv' | 'sample';
 
 export type MarketMetadata = {
   lastUpdated: string;
@@ -23,6 +23,14 @@ export type LoadedMarketData = {
   metadata: MarketMetadata | null;
   source: DataSource;
   error?: string;
+};
+
+export type StoredMarketData = {
+  price: MarketPoint[];
+  totalReturn: MarketPoint[];
+  metadata: MarketMetadata;
+  lastCheckedAt: string;
+  noTodayDataDate?: string;
 };
 
 export type DataHealthStatus = 'healthy' | 'stale' | 'fallback';

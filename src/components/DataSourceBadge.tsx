@@ -1,11 +1,16 @@
-import { Database, FileText, FlaskConical } from 'lucide-react';
+import { Database, FileText, FlaskConical, HardDrive } from 'lucide-react';
 import type { DataSource } from '../types';
 
 const sourceMap = {
-  actions: {
-    label: 'GitHub Actions 自動更新資料',
+  static: {
+    label: '內建靜態資料',
     className: 'border-cyan-400/40 bg-cyan-400/10 text-cyan-100',
     icon: Database,
+  },
+  storage: {
+    label: '本地手動更新資料',
+    className: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100',
+    icon: HardDrive,
   },
   csv: {
     label: 'CSV 上傳資料',

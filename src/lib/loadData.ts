@@ -1,4 +1,5 @@
 import { sampleData, sortMarketData, validateMarketData } from './calculations';
+import { readStoredMarketData } from './storage';
 import type { IndexType, LoadedMarketData, MarketMetadata, MarketPoint } from '../types';
 
 const dataPathByIndexType: Record<IndexType, string> = {
@@ -38,7 +39,7 @@ const fetchJson = async (url: string) => {
   return response.json() as Promise<unknown>;
 };
 
-export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarketData> => {
+export const loadStaticMarketData = async (indexType: IndexType): Promise<LoadedMarketData> => {
   try {
     const [pointsPayload, metadataPayload] = await Promise.all([
       fetchJson(getAssetUrl(dataPathByIndexType[indexType])),
@@ -59,7 +60,7 @@ export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarket
     return {
       points,
       metadata: metadataPayload,
-      source: 'actions',
+      source: 'static',
     };
   } catch (error) {
     return {
@@ -69,4 +70,17 @@ export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarket
       error: error instanceof Error ? error.message : '靜態資料讀取失敗。',
     };
   }
+};
+
+export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarketData> => {
+  const stored = readStoredMarketData();
+  if (stored) {
+    return {
+      points: stored[indexType],
+      metadata: stored.metadata,
+      source: 'storage',
+    };
+  }
+
+  return loadStaticMarketData(indexType);
 };
