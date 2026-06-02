@@ -34,13 +34,17 @@ export function HistoricalDistribution({
     );
   }
 
+  const firstSampleDate = distribution.samples[0]?.date;
+  const lastSampleDate = distribution.samples[distribution.samples.length - 1]?.date;
+  const periodText = firstSampleDate && lastSampleDate ? `${firstSampleDate} 至 ${lastSampleDate}` : '無期間資料';
+
   return (
     <section className="rounded-lg border border-slate-800 bg-panel p-5 shadow-xl shadow-black/20">
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">歷史脈絡</h2>
           <p className="mt-1 text-sm text-slate-500">
-            以目前高低點模式逐日計算回落幅度，提供歷史分布參考。
+            統計期間 {periodText}，以目前高低點模式逐日計算回落幅度。
           </p>
         </div>
         <div className="text-sm text-slate-400 lg:text-right">
