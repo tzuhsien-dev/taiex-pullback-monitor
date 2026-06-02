@@ -1,14 +1,6 @@
-import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clipboard, ClipboardCheck, Gauge, ShieldAlert } from 'lucide-react';
-import type { DataHealth, IndexType, PullbackParams, PullbackResult } from '../types';
+import { AlertTriangle, CheckCircle2, Gauge, ShieldAlert } from 'lucide-react';
+import type { DataHealth, PullbackParams, PullbackResult } from '../types';
 import { formatNumber, formatPercent, formatSignedPercent } from '../lib/calculations';
-
-const indexLabel: Record<IndexType, string> = {
-  price: '加權指數',
-  totalReturn: '加權報酬指數',
-};
-
-const copyStatusResetMs = 1800;
 
 function getTone(result: PullbackResult, dataHealth: DataHealth) {
   if (dataHealth.status !== 'healthy') return 'danger';
@@ -20,15 +12,12 @@ function getTone(result: PullbackResult, dataHealth: DataHealth) {
 export function AlertSummary({
   result,
   params,
-  indexType,
   dataHealth,
 }: {
   result: PullbackResult;
   params: PullbackParams;
-  indexType: IndexType;
   dataHealth: DataHealth;
 }) {
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const tone = getTone(result, dataHealth);
   const hasReachedThreshold = result.distanceToThresholdPoints <= 0;
   const highLabel = result.highLowMode === 'rolling' ? '近期高點' : '追蹤高點';
@@ -56,29 +45,6 @@ export function AlertSummary({
   }[tone];
   const Icon = tone === 'success' ? CheckCircle2 : tone === 'warning' ? AlertTriangle : tone === 'danger' ? ShieldAlert : Gauge;
 
-  const shareText = useMemo(
-    () =>
-      `${indexLabel[indexType]} ${result.latestDate} 收 ${formatNumber(result.currentIndex)}，距 ${params.lookbackDays} 日高點回落 ${formatPercent(
-        result.pullback,
-      )}，${result.statusText}，門檻點位 ${formatNumber(result.thresholdIndex)}。`,
-    [indexType, params.lookbackDays, result],
-  );
-
-  const copyShareText = async () => {
-    try {
-      if (!navigator.clipboard?.writeText) {
-        throw new Error('Clipboard API unavailable');
-      }
-
-      await navigator.clipboard.writeText(shareText);
-      setCopyState('copied');
-    } catch {
-      setCopyState('failed');
-    } finally {
-      window.setTimeout(() => setCopyState('idle'), copyStatusResetMs);
-    }
-  };
-
   return (
     <section className={`rounded-lg border p-5 shadow-xl shadow-black/20 ${toneClass}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -88,14 +54,6 @@ export function AlertSummary({
               <Icon className="h-4 w-4" />
               監控提醒
             </span>
-            <button
-              className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-black/10 px-3 py-1 text-sm font-semibold text-slate-100 transition hover:border-cyan-400 hover:text-cyan-100"
-              type="button"
-              onClick={copyShareText}
-            >
-              {copyState === 'copied' ? <ClipboardCheck className="h-4 w-4 text-emerald-300" /> : <Clipboard className="h-4 w-4" />}
-              {copyState === 'copied' ? '已複製' : copyState === 'failed' ? '複製失敗' : '複製摘要'}
-            </button>
           </div>
           <h2 className="text-2xl font-semibold text-white">{headline}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>

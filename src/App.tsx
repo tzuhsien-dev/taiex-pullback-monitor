@@ -7,7 +7,6 @@ import { InputPanel } from './components/InputPanel';
 import { KeyMetricsBar } from './components/KeyMetricsBar';
 import { RiskFooter } from './components/RiskFooter';
 import { calculatePullback, sampleData } from './lib/calculations';
-import { parseMarketCsv } from './lib/csv';
 import { loadMarketData, loadStaticMarketData } from './lib/loadData';
 import { clearStoredMarketData } from './lib/storage';
 import { updateTwseDataInStorage, type TwseUpdateProgress } from './lib/twseClient';
@@ -110,8 +109,6 @@ function App() {
   const [metadata, setMetadata] = useState<MarketMetadata | null>(null);
   const [source, setSource] = useState<DataSource>('sample');
   const [staticSeed, setStaticSeed] = useState<{ price: MarketPoint[]; totalReturn: MarketPoint[] } | null>(null);
-  const [dataError, setDataError] = useState<string>();
-  const [csvError, setCsvError] = useState<string>();
   const [isUpdatingData, setIsUpdatingData] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ kind: 'idle' });
   const [updateProgress, setUpdateProgress] = useState<TwseUpdateProgress | null>(null);
@@ -144,8 +141,6 @@ function App() {
       setPoints(loaded.points);
       setMetadata(loaded.metadata);
       setSource(loaded.source);
-      setDataError(loaded.error);
-      setCsvError(undefined);
     });
 
     if (!staticSeed) {
@@ -154,7 +149,7 @@ function App() {
           if (!active) return;
           if (priceLoaded.source === 'static' && totalReturnLoaded.source === 'static') {
             setStaticSeed({
-            price: priceLoaded.points,
+              price: priceLoaded.points,
               totalReturn: totalReturnLoaded.points,
             });
           }
@@ -169,19 +164,6 @@ function App() {
 
   const result = useMemo(() => calculatePullback(points, params), [params, points]);
   const dataHealth = useMemo(() => getDataHealth(source, metadata), [metadata, source]);
-
-  const handleCsvUpload = (content: string) => {
-    try {
-      const parsed = parseMarketCsv(content);
-      setPoints(parsed);
-      setMetadata(null);
-      setSource('csv');
-      setCsvError(undefined);
-      setDataError(undefined);
-    } catch (error) {
-      setCsvError(error instanceof Error ? error.message : 'CSV 解析失敗。');
-    }
-  };
 
   const handleIndexTypeChange = (nextIndexType: IndexType) => {
     setIndexType(nextIndexType);
@@ -210,8 +192,6 @@ function App() {
         setPoints(outcome.stored[indexType]);
         setMetadata(outcome.stored.metadata);
         setSource('storage');
-        setDataError(undefined);
-        setCsvError(undefined);
       }
       setUpdateStatus({ kind: 'success', message: outcome.message });
     } catch (error) {
@@ -236,7 +216,6 @@ function App() {
     setPoints(loaded.points);
     setMetadata(loaded.metadata);
     setSource(loaded.source);
-    setDataError(loaded.error);
   };
 
   return (
@@ -262,15 +241,12 @@ function App() {
       </header>
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6">
-        <AlertSummary result={result} params={params} indexType={indexType} dataHealth={dataHealth} />
+        <AlertSummary result={result} params={params} dataHealth={dataHealth} />
         <IndexChart result={result} />
         <KeyMetricsBar result={result} indexType={indexType} metadata={metadata} dataHealth={dataHealth} />
         <InputPanel
-          csvError={csvError}
-          dataError={dataError}
           indexType={indexType}
           params={params}
-          onCsvUpload={handleCsvUpload}
           onIndexTypeChange={handleIndexTypeChange}
           onParamsChange={setParams}
         />
