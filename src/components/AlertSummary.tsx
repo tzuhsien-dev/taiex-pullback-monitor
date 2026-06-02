@@ -20,7 +20,6 @@ export function AlertSummary({
 }) {
   const tone = getTone(result, dataHealth);
   const hasReachedThreshold = result.distanceToThresholdPoints <= 0;
-  const highLabel = result.highLowMode === 'rolling' ? '近期高點' : '追蹤高點';
   const headline =
     dataHealth.status !== 'healthy'
       ? dataHealth.label
@@ -46,7 +45,7 @@ export function AlertSummary({
   const Icon = tone === 'success' ? CheckCircle2 : tone === 'warning' ? AlertTriangle : tone === 'danger' ? ShieldAlert : Gauge;
 
   return (
-    <section className={`rounded-lg border p-5 shadow-xl shadow-black/20 ${toneClass}`}>
+    <section className={`rounded-lg border p-4 shadow-xl shadow-black/20 sm:p-5 ${toneClass}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -59,20 +58,15 @@ export function AlertSummary({
           <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:w-[560px] lg:max-w-[48%]">
-          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
-            <div className="text-xs text-slate-400">{highLabel}</div>
-            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.rollingHigh)}</div>
-            <div className="text-xs text-slate-500">{result.rollingHighDate}</div>
-          </div>
-          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:w-[380px] lg:max-w-[38%]">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-2.5 sm:p-3">
             <div className="text-xs text-slate-400">回落門檻點位</div>
-            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(result.thresholdIndex)}</div>
+            <div className="mt-1 text-base font-semibold text-white sm:text-lg">{formatNumber(result.thresholdIndex)}</div>
             <div className="text-xs text-slate-500">{formatPercent(params.pullbackThreshold)}</div>
           </div>
-          <div className="rounded-lg border border-white/10 bg-black/10 p-3">
+          <div className="rounded-lg border border-white/10 bg-black/10 p-2.5 sm:p-3">
             <div className="text-xs text-slate-400">{hasReachedThreshold ? '已低於門檻' : '距離門檻還差'}</div>
-            <div className="mt-1 text-lg font-semibold text-white">{formatNumber(Math.abs(result.distanceToThresholdPoints))} 點</div>
+            <div className="mt-1 text-base font-semibold text-white sm:text-lg">{formatNumber(Math.abs(result.distanceToThresholdPoints))} 點</div>
             <div className="text-xs text-slate-500">{formatSignedPercent(result.distanceToThresholdPercent)}</div>
           </div>
         </div>

@@ -40,17 +40,15 @@ export function IndexChart({ result }: { result: PullbackResult }) {
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">指數走勢與回落門檻</h2>
-          <p className="mt-1 text-sm text-slate-500">顯示目前模式追蹤的高點、低點與回落門檻線</p>
+          <p className="mt-1 text-sm text-slate-500">近 {result.lookbackData.length} 筆資料，追蹤高點與回落門檻</p>
         </div>
-        <div className="grid gap-1 text-sm text-slate-400 sm:grid-cols-2 lg:text-right">
-          <span>最新資料日期 {result.latestDate}</span>
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-400 lg:justify-end lg:text-right">
           <span>目前回落 {formatPercent(result.pullback)}</span>
           <span>門檻點位 {formatNumber(result.thresholdIndex)}</span>
-          <span>距離門檻 {formatNumber(result.distanceToThresholdPoints)} 點</span>
         </div>
       </div>
 
-      <div className="h-[360px] w-full sm:h-[460px]">
+      <div className="h-[340px] w-full sm:h-[440px]">
         <ResponsiveContainer height="100%" width="100%">
           <LineChart data={data} margin={{ top: 28, right: 36, bottom: 8, left: 2 }}>
             <CartesianGrid stroke="#26364f" strokeDasharray="3 3" />
