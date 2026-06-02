@@ -2,12 +2,12 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import type { MarketPoint, PullbackParams, PullbackResult } from '../types';
 import { calculateHistoricalPullbackDistribution, formatNumber, formatPercent } from '../lib/calculations';
 
-function DistributionMetric({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function HistoryStat({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-panelSoft p-4">
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
-      {detail ? <div className="mt-1 text-xs text-slate-500">{detail}</div> : null}
+    <div className="rounded-lg border border-slate-800 bg-panelSoft px-3 py-2.5 sm:p-4">
+      <div className="text-xs text-slate-400 sm:text-sm">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-white sm:mt-2 sm:text-2xl">{value}</div>
+      {detail ? <div className="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">{detail}</div> : null}
     </div>
   );
 }
@@ -25,9 +25,9 @@ export function HistoricalDistribution({
 
   if (!distribution) {
     return (
-      <section className="rounded-lg border border-slate-800 bg-panel p-5 shadow-xl shadow-black/20">
-        <h2 className="text-lg font-semibold text-white">歷史脈絡</h2>
-        <p className="mt-2 text-sm text-slate-400">
+      <section className="rounded-lg border border-slate-800 bg-panel p-4 shadow-xl shadow-black/20 sm:p-5">
+        <h2 className="text-base font-semibold text-white sm:text-lg">歷史脈絡</h2>
+        <p className="mt-2 text-xs leading-5 text-slate-400 sm:text-sm">
           資料筆數少於目前觀察期 {params.lookbackDays} 日，無法計算歷史分布。請降低觀察期或上傳更多 CSV 資料。
         </p>
       </section>
@@ -39,33 +39,30 @@ export function HistoricalDistribution({
   const periodText = firstSampleDate && lastSampleDate ? `${firstSampleDate} 至 ${lastSampleDate}` : '無期間資料';
 
   return (
-    <section className="rounded-lg border border-slate-800 bg-panel p-5 shadow-xl shadow-black/20">
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <section className="rounded-lg border border-slate-800 bg-panel p-4 shadow-xl shadow-black/20 sm:p-5">
+      <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">歷史脈絡</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-base font-semibold text-white sm:text-lg">歷史脈絡</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
             統計期間 {periodText}，以目前高低點模式逐日計算回落幅度。
           </p>
         </div>
-        <div className="text-sm text-slate-400 lg:text-right">
-          目前回落 {formatPercent(distribution.currentDepth)}，位於歷史第 {formatPercent(distribution.percentile)} 分位
+        <div className="text-xs leading-5 text-slate-400 lg:text-right">
+          樣本 {formatNumber(distribution.sampleCount, 0)} 日 · 平均回落 {formatPercent(distribution.averageDepth)} · 目前回落 {formatPercent(distribution.currentDepth)}
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-        <DistributionMetric label="可計算樣本數" value={formatNumber(distribution.sampleCount, 0)} detail="交易日" />
-        <DistributionMetric label="目前回落幅度" value={`回落 ${formatPercent(distribution.currentDepth)}`} detail={result.latestDate} />
-        <DistributionMetric label="歷史最大回落" value={formatPercent(distribution.maxDepth)} />
-        <DistributionMetric label="歷史平均回落" value={formatPercent(distribution.averageDepth)} />
-        <DistributionMetric label="目前歷史分位" value={formatPercent(distribution.percentile)} detail="越高代表回落越深" />
-        <DistributionMetric
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <HistoryStat label="歷史分位" value={formatPercent(distribution.percentile)} detail="越高越深" />
+        <HistoryStat label="最大回落" value={formatPercent(distribution.maxDepth)} />
+        <HistoryStat
           label="達門檻天數"
           value={formatNumber(distribution.thresholdHitCount, 0)}
-          detail={`${formatPercent(distribution.thresholdHitRate)} 的樣本達 ${formatPercent(params.pullbackThreshold)}`}
+          detail={`${formatPercent(distribution.thresholdHitRate)} 達標`}
         />
       </div>
 
-      <div className="mt-5 h-[300px] w-full">
+      <div className="mt-4 h-[180px] w-full sm:mt-5 sm:h-[280px]">
         <ResponsiveContainer height="100%" width="100%">
           <BarChart data={distribution.bins} margin={{ top: 12, right: 10, bottom: 4, left: 0 }}>
             <CartesianGrid stroke="#26364f" strokeDasharray="3 3" vertical={false} />

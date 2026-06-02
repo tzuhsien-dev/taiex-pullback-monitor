@@ -1,7 +1,6 @@
+import { useEffect, useState } from 'react';
 import {
   CartesianGrid,
-  Label,
-  Legend,
   Line,
   LineChart,
   ReferenceDot,
@@ -25,7 +24,23 @@ const highLineLabel = {
   volatilityAdjustedZigZag: '追蹤波段高點',
 };
 
+function useCompactChart() {
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 640px)');
+    const update = () => setIsCompact(query.matches);
+    update();
+    query.addEventListener('change', update);
+
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return isCompact;
+}
+
 export function IndexChart({ result }: { result: PullbackResult }) {
+  const isCompact = useCompactChart();
   const data = buildChartData(result);
   const latestPoint = data[data.length - 1];
   const highPoint = data.find((point) => point.date === result.rollingHighDate && point.index === result.rollingHigh);
@@ -48,12 +63,19 @@ export function IndexChart({ result }: { result: PullbackResult }) {
         </div>
       </div>
 
-      <div className="h-[340px] w-full sm:h-[440px]">
+      <div className="h-[300px] w-full sm:h-[440px]">
         <ResponsiveContainer height="100%" width="100%">
-          <LineChart data={data} margin={{ top: 28, right: 36, bottom: 8, left: 2 }}>
+          <LineChart data={data} margin={isCompact ? { top: 18, right: 8, bottom: 0, left: 0 } : { top: 24, right: 28, bottom: 4, left: 2 }}>
             <CartesianGrid stroke="#26364f" strokeDasharray="3 3" />
-            <XAxis dataKey="date" minTickGap={30} stroke="#94a3b8" tick={{ fontSize: 12 }} />
-            <YAxis domain={['dataMin - 250', 'dataMax + 250']} stroke="#94a3b8" tick={{ fontSize: 12 }} tickFormatter={(value) => formatNumber(Number(value), 0)} width={70} />
+            <XAxis dataKey="date" minTickGap={isCompact ? 58 : 30} stroke="#94a3b8" tick={{ fontSize: isCompact ? 10 : 12 }} tickFormatter={(value) => String(value).slice(5)} />
+            <YAxis
+              domain={['dataMin - 250', 'dataMax + 250']}
+              hide={isCompact}
+              stroke="#94a3b8"
+              tick={{ fontSize: 12 }}
+              tickFormatter={(value) => formatNumber(Number(value), 0)}
+              width={70}
+            />
             <Tooltip
               contentStyle={{
                 background: '#111c2e',
@@ -64,27 +86,24 @@ export function IndexChart({ result }: { result: PullbackResult }) {
               formatter={(value: number, name) => [formatNumber(value), name]}
               labelStyle={{ color: '#bae6fd' }}
             />
-            <Legend wrapperStyle={{ color: '#cbd5e1', fontSize: 12 }} />
             <Line dataKey="index" dot={false} name="指數" stroke="#22d3ee" strokeWidth={3} type="monotone" />
             <Line dataKey="rollingHigh" dot={false} name={highLineLabel[result.highLowMode]} stroke="#a78bfa" strokeDasharray="7 5" strokeWidth={2} type="monotone" />
             <Line dataKey="thresholdIndex" dot={false} name="回落門檻線" stroke="#34d399" strokeDasharray="5 5" strokeWidth={2} type="monotone" />
             <Line dataKey="rollingLow" dot={false} name={lowLineLabel[result.highLowMode]} stroke="#facc15" strokeDasharray="4 4" strokeWidth={2} type="monotone" />
-            {highPoint ? (
+            {!isCompact && highPoint ? (
               <ReferenceDot fill="#a78bfa" r={6} stroke="#ffffff" x={highPoint.date} y={highPoint.index} />
             ) : null}
-            {lowPoint ? (
+            {!isCompact && lowPoint ? (
               <ReferenceDot fill="#facc15" r={6} stroke="#ffffff" x={lowPoint.date} y={lowPoint.index} />
             ) : null}
-            {confirmedHighPoint ? (
+            {!isCompact && confirmedHighPoint ? (
               <ReferenceDot fill="#6d5dfc" r={4} stroke="#ddd6fe" x={confirmedHighPoint.date} y={confirmedHighPoint.index} />
             ) : null}
-            {confirmedLowPoint ? (
+            {!isCompact && confirmedLowPoint ? (
               <ReferenceDot fill="#ca8a04" r={4} stroke="#fef3c7" x={confirmedLowPoint.date} y={confirmedLowPoint.index} />
             ) : null}
             {latestPoint ? (
-              <ReferenceDot fill="#22d3ee" r={7} stroke="#ffffff" x={latestPoint.date} y={latestPoint.index}>
-                <Label fill="#a5f3fc" offset={10} position="insideTopLeft" value="最新" />
-              </ReferenceDot>
+              <ReferenceDot fill="#22d3ee" r={7} stroke="#ffffff" x={latestPoint.date} y={latestPoint.index} />
             ) : null}
           </LineChart>
         </ResponsiveContainer>

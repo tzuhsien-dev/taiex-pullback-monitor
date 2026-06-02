@@ -219,7 +219,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-ink pb-28 text-slate-100">
+    <div className="min-h-screen bg-ink pb-0 text-slate-100 sm:pb-28">
       <header className="border-b border-slate-800 bg-ink/90">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6">
           <div className="min-w-0">

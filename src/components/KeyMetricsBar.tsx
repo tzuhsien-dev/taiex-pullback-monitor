@@ -29,7 +29,7 @@ function MetricItem({ label, value, detail }: { label: string; value: string; de
   return (
     <div className="min-w-0">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 truncate text-lg font-semibold text-white">{value}</div>
+      <div className="mt-1 truncate text-base font-semibold text-white sm:text-lg">{value}</div>
       {detail ? <div className="mt-0.5 truncate text-xs text-slate-500">{detail}</div> : null}
     </div>
   );
@@ -58,7 +58,7 @@ export function KeyMetricsBar({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 lg:grid-cols-5">
         <MetricItem label="目前指數" value={formatNumber(result.currentIndex)} detail={result.latestDate} />
         <MetricItem label={highMetricLabel[result.highLowMode]} value={formatNumber(result.rollingHigh)} detail={result.rollingHighDate} />
         <MetricItem label={lowMetricLabel[result.highLowMode]} value={formatNumber(result.rollingLow)} detail={result.rollingLowDate} />
