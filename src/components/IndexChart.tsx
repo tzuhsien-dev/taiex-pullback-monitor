@@ -5,6 +5,7 @@ import {
   Line,
   LineChart,
   ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,7 +13,7 @@ import {
 } from 'recharts';
 import type { MarketPoint, PullbackResult } from '../types';
 import { buildChartData, formatNumber, formatPercent } from '../lib/calculations';
-import { getDefaultZoomRange, isZoomRangeActive, resolveZoomRange } from '../lib/chartZoom';
+import { getDefaultZoomRange, isDefaultZoomRange, resolveZoomRange } from '../lib/chartZoom';
 
 const lowLineLabel = {
   rolling: 'N 日低點',
@@ -53,10 +54,26 @@ export function IndexChart({
   const isCompact = useCompactChart();
   const data = useMemo(() => buildChartData(points, result), [points, result]);
   const zoomKey = `${resetKey}:${result.lookbackData.length}`;
-  const [storedZoomRange, setZoomRange] = useState(() => getDefaultZoomRange(zoomKey, data.length));
-  const zoomRange = resolveZoomRange(storedZoomRange, zoomKey, data.length);
-  const resetZoom = () => setZoomRange(getDefaultZoomRange(zoomKey, data.length));
-  const isZoomed = isZoomRangeActive(zoomRange, data.length);
+  const defaultWindowSize = Math.min(result.lookbackData.length, data.length);
+  const [storedZoomRange, setZoomRange] = useState(() =>
+    getDefaultZoomRange(zoomKey, data.length, defaultWindowSize),
+  );
+  const zoomRange = resolveZoomRange(
+    storedZoomRange,
+    zoomKey,
+    data.length,
+    defaultWindowSize,
+  );
+  const resetZoom = () =>
+    setZoomRange(getDefaultZoomRange(zoomKey, data.length, defaultWindowSize));
+  const showAll = () =>
+    setZoomRange(getDefaultZoomRange(zoomKey, data.length));
+  const isDefaultView = isDefaultZoomRange(
+    zoomRange,
+    data.length,
+    defaultWindowSize,
+  );
+  const isFullView = zoomRange.startIndex === 0 && zoomRange.endIndex === data.length - 1;
   const visibleCount = zoomRange.endIndex - zoomRange.startIndex + 1;
   const formatAxisDate = (value: unknown) => {
     const date = String(value);
@@ -76,7 +93,7 @@ export function IndexChart({
         <div>
           <h2 className="text-lg font-semibold text-white">指數走勢與回落門檻</h2>
           <p className="mt-1 text-sm text-slate-500">
-            顯示全部 {data.length} 筆資料；高低點與門檻依近 {result.lookbackData.length} 個交易日計算
+            預設顯示近 {defaultWindowSize} 個交易日；下方選取器涵蓋全部 {data.length} 筆資料
           </p>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-400 lg:justify-end lg:text-right">
@@ -84,11 +101,19 @@ export function IndexChart({
           <span>門檻點位 {formatNumber(result.thresholdIndex)}</span>
           <button
             className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!isZoomed}
+            disabled={isDefaultView}
             type="button"
             onClick={resetZoom}
           >
-            重設縮放
+            最近 {defaultWindowSize} 日
+          </button>
+          <button
+            className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={isFullView}
+            type="button"
+            onClick={showAll}
+          >
+            顯示全部
           </button>
         </div>
       </div>
@@ -117,9 +142,27 @@ export function IndexChart({
               labelStyle={{ color: '#bae6fd' }}
             />
             <Line dataKey="index" dot={false} name="指數" stroke="#22d3ee" strokeWidth={3} type="monotone" />
-            <Line dataKey="rollingHigh" dot={false} name={highLineLabel[result.highLowMode]} stroke="#a78bfa" strokeDasharray="7 5" strokeWidth={2} type="monotone" />
-            <Line dataKey="thresholdIndex" dot={false} name="回落門檻線" stroke="#34d399" strokeDasharray="5 5" strokeWidth={2} type="monotone" />
-            <Line dataKey="rollingLow" dot={false} name={lowLineLabel[result.highLowMode]} stroke="#facc15" strokeDasharray="4 4" strokeWidth={2} type="monotone" />
+            <ReferenceLine
+              name={highLineLabel[result.highLowMode]}
+              stroke="#a78bfa"
+              strokeDasharray="7 5"
+              strokeWidth={2}
+              y={result.rollingHigh}
+            />
+            <ReferenceLine
+              name="回落門檻線"
+              stroke="#34d399"
+              strokeDasharray="5 5"
+              strokeWidth={2}
+              y={result.thresholdIndex}
+            />
+            <ReferenceLine
+              name={lowLineLabel[result.highLowMode]}
+              stroke="#facc15"
+              strokeDasharray="4 4"
+              strokeWidth={2}
+              y={result.rollingLow}
+            />
             {!isCompact && highPoint ? (
               <ReferenceDot fill="#a78bfa" r={6} stroke="#ffffff" x={highPoint.date} y={highPoint.index} />
             ) : null}

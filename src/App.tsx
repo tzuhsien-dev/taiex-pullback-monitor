@@ -7,6 +7,7 @@ import { InputPanel } from './components/InputPanel';
 import { KeyMetricsBar } from './components/KeyMetricsBar';
 import { RiskFooter } from './components/RiskFooter';
 import { calculatePullback, sampleData } from './lib/calculations';
+import { hasNewAppVersion } from './lib/appVersion';
 import { parseMarketCsv } from './lib/csv';
 import { getDataHealth } from './lib/dataHealth';
 import { loadMarketData, loadStaticMarketData } from './lib/loadData';
@@ -66,6 +67,7 @@ function App() {
   const [isUpdatingData, setIsUpdatingData] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ kind: 'idle' });
   const [updateProgress, setUpdateProgress] = useState<TwseUpdateProgress | null>(null);
+  const [hasUpdate, setHasUpdate] = useState(false);
   const updateAbortController = useRef<AbortController | null>(null);
 
   const loadStaticSeed = async () => {
@@ -128,6 +130,21 @@ function App() {
   useEffect(() => {
     writeStoredPreferences({ indexType, params });
   }, [indexType, params]);
+
+  useEffect(() => {
+    const checkForUpdate = () => {
+      hasNewAppVersion()
+        .then((available) => setHasUpdate((current) => current || available))
+        .catch(() => undefined);
+    };
+    window.addEventListener('focus', checkForUpdate);
+    document.addEventListener('visibilitychange', checkForUpdate);
+
+    return () => {
+      window.removeEventListener('focus', checkForUpdate);
+      document.removeEventListener('visibilitychange', checkForUpdate);
+    };
+  }, []);
 
   const result = useMemo(() => calculatePullback(points, params), [params, points]);
   const dataHealth = useMemo(
@@ -232,6 +249,18 @@ function App() {
   return (
     <div className="min-h-screen bg-ink pb-0 text-slate-100 sm:pb-28">
       <header className="border-b border-slate-800 bg-ink/90">
+        {hasUpdate ? (
+          <div className="border-b border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-center text-sm text-cyan-100">
+            網站已有新版本。
+            <button
+              className="ml-2 font-semibold underline underline-offset-2"
+              type="button"
+              onClick={() => window.location.reload()}
+            >
+              重新載入
+            </button>
+          </div>
+        ) : null}
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-5 sm:px-6">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold text-white sm:text-3xl">台股近期高點回落監控器</h1>

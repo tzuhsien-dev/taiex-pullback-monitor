@@ -4,9 +4,13 @@ export type ChartZoomRange = {
   endIndex: number;
 };
 
-export const getDefaultZoomRange = (key: string, dataLength: number): ChartZoomRange => ({
+export const getDefaultZoomRange = (
+  key: string,
+  dataLength: number,
+  windowSize = dataLength,
+): ChartZoomRange => ({
   key,
-  startIndex: 0,
+  startIndex: Math.max(0, dataLength - windowSize),
   endIndex: Math.max(0, dataLength - 1),
 });
 
@@ -14,7 +18,18 @@ export const resolveZoomRange = (
   storedRange: ChartZoomRange,
   key: string,
   dataLength: number,
-): ChartZoomRange => (storedRange.key === key ? storedRange : getDefaultZoomRange(key, dataLength));
+  windowSize = dataLength,
+): ChartZoomRange =>
+  storedRange.key === key ? storedRange : getDefaultZoomRange(key, dataLength, windowSize);
 
-export const isZoomRangeActive = (range: ChartZoomRange, dataLength: number) =>
-  range.startIndex > 0 || range.endIndex < dataLength - 1;
+export const isDefaultZoomRange = (
+  range: ChartZoomRange,
+  dataLength: number,
+  windowSize: number,
+) => {
+  const defaultRange = getDefaultZoomRange(range.key, dataLength, windowSize);
+  return (
+    range.startIndex === defaultRange.startIndex &&
+    range.endIndex === defaultRange.endIndex
+  );
+};
