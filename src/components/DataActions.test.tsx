@@ -8,16 +8,13 @@ describe('DataActions', () => {
     render(
       <DataActions
         isUpdating
-        historySummary={null}
         latestDate="2026-06-11"
         metadata={null}
         source="csv"
-        updateKind="latest"
         updateProgress={{ completed: 2, total: 4, label: '讀取資料' }}
         updateStatus={{ kind: 'idle' }}
         onCancel={onCancel}
         onClear={vi.fn()}
-        onDownloadHistory={vi.fn()}
         onUpdate={vi.fn()}
       />,
     );
@@ -26,6 +23,5 @@ describe('DataActions', () => {
     expect(cancelButton).toBeEnabled();
     fireEvent.click(cancelButton);
     expect(onCancel).toHaveBeenCalledOnce();
-    expect(screen.getByRole('button', { name: '下載完整歷史' })).toBeDisabled();
   });
 });

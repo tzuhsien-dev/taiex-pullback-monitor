@@ -1,5 +1,4 @@
 import { sampleData, sortMarketData, validateMarketData } from './calculations';
-import { readHistoryMarketData } from './historyStorage';
 import { readStoredMarketData } from './storage';
 import type { IndexType, LoadedMarketData, MarketMetadata, MarketPoint } from '../types';
 
@@ -74,17 +73,40 @@ export const loadStaticMarketData = async (indexType: IndexType): Promise<Loaded
 };
 
 export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarketData> => {
-  const history = await readHistoryMarketData();
-  if (history) {
-    return {
-      points: history[indexType],
-      metadata: history.metadata,
-      source: 'storage',
-    };
-  }
-
   const stored = readStoredMarketData();
   if (stored) {
+    const [staticPrice, staticTotalReturn] = await Promise.all([
+      loadStaticMarketData('price'),
+      loadStaticMarketData('totalReturn'),
+    ]);
+    if (
+      staticPrice.source === 'static' &&
+      staticTotalReturn.source === 'static'
+    ) {
+      const mergedPrice = sortMarketData(validateMarketData([...staticPrice.points, ...stored.price]));
+      const mergedTotalReturn = sortMarketData(
+        validateMarketData([...staticTotalReturn.points, ...stored.totalReturn]),
+      );
+      const points = indexType === 'price' ? mergedPrice : mergedTotalReturn;
+      const staticUpdatedAt = staticPrice.metadata?.lastUpdated ?? '';
+      const latestUpdatedAt =
+        staticUpdatedAt > stored.metadata.lastUpdated ? staticUpdatedAt : stored.metadata.lastUpdated;
+
+      return {
+        points,
+        metadata: {
+          ...stored.metadata,
+          lastUpdated: latestUpdatedAt,
+          generatedBy: 'static data merged with browser update',
+          priceDataCount: mergedPrice.length,
+          totalReturnDataCount: mergedTotalReturn.length,
+          priceLatestDate: mergedPrice.at(-1)?.date ?? '',
+          totalReturnLatestDate: mergedTotalReturn.at(-1)?.date ?? '',
+        },
+        source: 'storage',
+      };
+    }
+
     return {
       points: stored[indexType],
       metadata: stored.metadata,

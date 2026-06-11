@@ -85,19 +85,6 @@ export type StoredPreferences = {
   params: PullbackParams;
 };
 
-export type HistorySeriesSummary = {
-  count: number;
-  earliestDate: string;
-  latestDate: string;
-};
-
-export type HistoryStorageSummary = {
-  price: HistorySeriesSummary;
-  totalReturn: HistorySeriesSummary;
-  completedMonths: number;
-  lastSyncedAt?: string;
-};
-
 export type ChartPoint = MarketPoint & {
   rollingHigh?: number;
   rollingLow?: number;
