@@ -1,6 +1,6 @@
-import { RefreshCcw, Trash2 } from 'lucide-react';
-import type { DataSource, MarketMetadata } from '../types';
-import { formatDateTime } from '../lib/calculations';
+import { DatabaseZap, RefreshCcw, Trash2 } from 'lucide-react';
+import type { DataSource, HistoryStorageSummary, MarketMetadata } from '../types';
+import { formatDateTime, formatNumber } from '../lib/calculations';
 
 type UpdateStatus = {
   kind: 'idle' | 'success' | 'error';
@@ -25,9 +25,12 @@ export function DataActions({
   latestDate: currentLatestDate,
   metadata,
   isUpdating,
+  updateKind,
   updateStatus,
   updateProgress,
+  historySummary,
   onUpdate,
+  onDownloadHistory,
   onCancel,
   onClear,
 }: {
@@ -35,9 +38,12 @@ export function DataActions({
   latestDate: string;
   metadata: MarketMetadata | null;
   isUpdating: boolean;
+  updateKind: 'latest' | 'fullHistory';
   updateStatus: UpdateStatus;
   updateProgress: UpdateProgress;
+  historySummary: HistoryStorageSummary | null;
   onUpdate: () => void;
+  onDownloadHistory: () => void;
   onCancel: () => void;
   onClear: () => void;
 }) {
@@ -50,11 +56,20 @@ export function DataActions({
       : '無資料日期';
   const statusText = `${sourceLabel[source]} · ${latestDate} · 更新 ${formatDateTime(metadata?.lastUpdated)}`;
   const progressPercent = updateProgress ? Math.round((updateProgress.completed / Math.max(updateProgress.total, 1)) * 100) : 0;
+  const hasStoredMonths = Boolean(historySummary && historySummary.completedMonths > 0);
+  const formatSeries = (label: string, summary: HistoryStorageSummary['price']) =>
+    summary.count > 0
+      ? `${label} ${summary.earliestDate}–${summary.latestDate} (${formatNumber(summary.count, 0)} 筆)`
+      : `${label}尚無資料`;
+  const historyText = hasStoredMonths && historySummary
+    ? `本機歷史 · ${formatSeries('加權', historySummary.price)} · ${formatSeries('報酬', historySummary.totalReturn)} · 已儲存 ${historySummary.completedMonths} 個月份`
+    : '尚未下載完整歷史資料';
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-slate-800/70 bg-panel/30 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div className="min-w-0 text-xs leading-5 text-slate-500">
         <div className="truncate" title={statusText}>{statusText}</div>
+        <div className="truncate text-slate-400" title={historyText}>{historyText}</div>
         {updateStatus.message ? (
           <div
             aria-live="polite"
@@ -72,7 +87,16 @@ export function DataActions({
           onClick={isUpdating ? onCancel : onUpdate}
         >
           <RefreshCcw className={`h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-          {isUpdating ? `取消更新 ${progressPercent}%` : '更新最新資料'}
+          {isUpdating ? `取消${updateKind === 'fullHistory' ? '下載' : '更新'} ${progressPercent}%` : '更新最新資料'}
+        </button>
+        <button
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-violet-400/40 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100 transition hover:border-violet-300 hover:bg-violet-400/15 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+          disabled={isUpdating}
+          type="button"
+          onClick={onDownloadHistory}
+        >
+          <DatabaseZap className="h-4 w-4" />
+          {hasStoredMonths ? '補齊完整歷史' : '下載完整歷史'}
         </button>
         <button
           className="inline-flex items-center justify-center gap-2 rounded-md border border-transparent bg-transparent px-2 py-2 text-xs font-semibold text-slate-500 transition hover:border-red-300/40 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-60"

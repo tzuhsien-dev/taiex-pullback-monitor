@@ -1,4 +1,5 @@
 import { sampleData, sortMarketData, validateMarketData } from './calculations';
+import { readHistoryMarketData } from './historyStorage';
 import { readStoredMarketData } from './storage';
 import type { IndexType, LoadedMarketData, MarketMetadata, MarketPoint } from '../types';
 
@@ -73,6 +74,15 @@ export const loadStaticMarketData = async (indexType: IndexType): Promise<Loaded
 };
 
 export const loadMarketData = async (indexType: IndexType): Promise<LoadedMarketData> => {
+  const history = await readHistoryMarketData();
+  if (history) {
+    return {
+      points: history[indexType],
+      metadata: history.metadata,
+      source: 'storage',
+    };
+  }
+
   const stored = readStoredMarketData();
   if (stored) {
     return {

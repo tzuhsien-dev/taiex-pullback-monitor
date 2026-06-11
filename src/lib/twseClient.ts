@@ -1,4 +1,11 @@
 import { sortMarketData, validateMarketData } from './calculations';
+import {
+  getCompletedHistoryMonths,
+  getHistoryPoints,
+  putHistoryMonth,
+  readHistoryMarketData,
+  writeHistoryMetadata,
+} from './historyStorage';
 import { readStoredMarketData, writeStoredMarketData } from './storage';
 import type { IndexType, MarketMetadata, MarketPoint, StoredMarketData } from '../types';
 
@@ -30,6 +37,11 @@ export type TwseUpdateProgress = {
 const endpoints: Record<IndexType, string> = {
   price: 'https://www.twse.com.tw/indicesReport/MI_5MINS_HIST',
   totalReturn: 'https://www.twse.com.tw/indicesReport/MFI94U',
+};
+
+const historyStartMonth: Record<IndexType, string> = {
+  price: '199901',
+  totalReturn: '200301',
 };
 
 const indexLabel: Record<IndexType, string> = {
@@ -87,6 +99,11 @@ const addMonths = (date: Date, months: number) => {
 };
 
 const toMonthParam = (date: Date) => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}01`;
+const toMonthKey = (date: Date) => toMonthParam(date).slice(0, 6);
+const monthKeyToDate = (month: string) =>
+  new Date(Number(month.slice(0, 4)), Number(month.slice(4, 6)) - 1, 1);
+export const getTwseRequestDate = (indexType: IndexType, monthParam: string) =>
+  indexType === 'price' && monthParam === '19990101' ? '19990105' : monthParam;
 
 const parseNumber = (value: string, context: string) => {
   const parsed = Number(value.replace(/,/g, '').trim());
@@ -112,7 +129,8 @@ const findFieldIndex = (fields: string[], candidates: string[]) =>
 
 const fetchMonth = async (indexType: IndexType, month: Date, signal?: AbortSignal) => {
   const monthParam = toMonthParam(month);
-  const url = `${endpoints[indexType]}?response=json&date=${monthParam}`;
+  const requestDate = getTwseRequestDate(indexType, monthParam);
+  const url = `${endpoints[indexType]}?response=json&date=${requestDate}`;
 
   for (let attempt = 1; attempt <= maxFetchAttempts; attempt += 1) {
     signal?.throwIfAborted();
@@ -258,6 +276,132 @@ const buildMetadata = (price: MarketPoint[], totalReturn: MarketPoint[]): Market
   };
 };
 
+const buildStoredMarketData = (
+  price: MarketPoint[],
+  totalReturn: MarketPoint[],
+): StoredMarketData => {
+  const metadata = buildMetadata(price, totalReturn);
+  return {
+    price,
+    totalReturn,
+    metadata,
+    lastCheckedAt: metadata.lastUpdated,
+  };
+};
+
+const getRecentMonths = (count: number) => {
+  const now = new Date();
+  return Array.from({ length: count }, (_, index) => addMonths(now, index - count + 1));
+};
+
+const refreshIndexedHistory = async (
+  onProgress?: (progress: TwseUpdateProgress) => void,
+  signal?: AbortSignal,
+) => {
+  const tasks = (['price', 'totalReturn'] as const).flatMap((indexType) =>
+    getRecentMonths(2).map((month) => ({ indexType, month })),
+  );
+  let completed = 0;
+
+  for (const task of tasks) {
+    signal?.throwIfAborted();
+    const month = toMonthKey(task.month);
+    onProgress?.({
+      completed,
+      total: tasks.length,
+      label: `更新 ${indexLabel[task.indexType]} ${month}`,
+    });
+    const payload = await fetchMonth(task.indexType, task.month, signal);
+    await putHistoryMonth(task.indexType, month, parsePayload(payload, task.indexType, task.month));
+    completed += 1;
+    onProgress?.({
+      completed,
+      total: tasks.length,
+      label: `完成 ${indexLabel[task.indexType]} ${month}`,
+    });
+    await sleep(requestDelayMs, signal);
+  }
+
+  const [price, totalReturn] = await Promise.all([
+    getHistoryPoints('price'),
+    getHistoryPoints('totalReturn'),
+  ]);
+  const stored = buildStoredMarketData(price, totalReturn);
+  await writeHistoryMetadata(stored.metadata);
+  return stored;
+};
+
+export const buildHistoryMonthPlan = (
+  completedMonths: Set<string>,
+  currentMonth: string,
+) =>
+  (['price', 'totalReturn'] as const).flatMap((indexType) => {
+    const start = monthKeyToDate(historyStartMonth[indexType]);
+    const end = monthKeyToDate(currentMonth);
+    const tasks: Array<{ indexType: IndexType; month: string }> = [];
+
+    for (let month = start; month <= end; month = addMonths(month, 1)) {
+      const monthKey = toMonthKey(month);
+      if (monthKey === currentMonth || !completedMonths.has(`${indexType}:${monthKey}`)) {
+        tasks.push({ indexType, month: monthKey });
+      }
+    }
+    return tasks;
+  });
+
+const buildHistoryTasks = async () => {
+  const completedMonths = await getCompletedHistoryMonths();
+  const currentMonth = taipeiDateParts().date.slice(0, 7).replace('-', '');
+  return buildHistoryMonthPlan(completedMonths, currentMonth).map((task) => ({
+    indexType: task.indexType,
+    month: monthKeyToDate(task.month),
+  }));
+};
+
+export const downloadFullTwseHistory = async (
+  onProgress?: (progress: TwseUpdateProgress) => void,
+  signal?: AbortSignal,
+): Promise<UpdateOutcome> => {
+  signal?.throwIfAborted();
+  const tasks = await buildHistoryTasks();
+  let completed = 0;
+
+  for (const task of tasks) {
+    signal?.throwIfAborted();
+    const month = toMonthKey(task.month);
+    onProgress?.({
+      completed,
+      total: tasks.length,
+      label: `下載 ${indexLabel[task.indexType]} ${month}`,
+    });
+    const payload = await fetchMonth(task.indexType, task.month, signal);
+    await putHistoryMonth(task.indexType, month, parsePayload(payload, task.indexType, task.month));
+    completed += 1;
+    onProgress?.({
+      completed,
+      total: tasks.length,
+      label: `已儲存 ${indexLabel[task.indexType]} ${month}`,
+    });
+    await sleep(requestDelayMs, signal);
+  }
+
+  const [price, totalReturn] = await Promise.all([
+    getHistoryPoints('price'),
+    getHistoryPoints('totalReturn'),
+  ]);
+  if (price.length === 0 || totalReturn.length === 0) {
+    throw new Error('完整歷史資料下載完成，但沒有取得可用資料。');
+  }
+
+  const stored = buildStoredMarketData(price, totalReturn);
+  await writeHistoryMetadata(stored.metadata);
+  return {
+    status: 'updated',
+    stored,
+    message: `完整歷史資料已儲存在本機：加權 ${price.length} 筆，報酬 ${totalReturn.length} 筆。`,
+  };
+};
+
 export const updateTwseDataInStorage = async (
   onProgress?: (progress: TwseUpdateProgress) => void,
   seedData?: {
@@ -267,6 +411,16 @@ export const updateTwseDataInStorage = async (
   signal?: AbortSignal,
 ): Promise<UpdateOutcome> => {
   signal?.throwIfAborted();
+  const history = await readHistoryMarketData();
+  if (history) {
+    const stored = await refreshIndexedHistory(onProgress, signal);
+    return {
+      status: 'updated',
+      stored,
+      message: '已更新本機完整歷史資料的最近月份。',
+    };
+  }
+
   const stored = readStoredMarketData();
   const { date: today, hour } = taipeiDateParts();
   const hasTodayData = stored?.metadata.priceLatestDate === today && stored.metadata.totalReturnLatestDate === today;

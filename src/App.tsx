@@ -9,14 +9,29 @@ import { RiskFooter } from './components/RiskFooter';
 import { calculatePullback, sampleData } from './lib/calculations';
 import { parseMarketCsv } from './lib/csv';
 import { getDataHealth } from './lib/dataHealth';
+import {
+  clearHistoryStorage,
+  getHistoryStorageSummary,
+} from './lib/historyStorage';
 import { loadMarketData, loadStaticMarketData } from './lib/loadData';
 import {
   clearStoredMarketData,
   readStoredPreferences,
   writeStoredPreferences,
 } from './lib/storage';
-import { updateTwseDataInStorage, type TwseUpdateProgress } from './lib/twseClient';
-import type { DataSource, IndexType, MarketMetadata, MarketPoint, PullbackParams } from './types';
+import {
+  downloadFullTwseHistory,
+  updateTwseDataInStorage,
+  type TwseUpdateProgress,
+} from './lib/twseClient';
+import type {
+  DataSource,
+  HistoryStorageSummary,
+  IndexType,
+  MarketMetadata,
+  MarketPoint,
+  PullbackParams,
+} from './types';
 
 const initialParams: PullbackParams = {
   highLowMode: 'volatilityAdjustedZigZag',
@@ -33,6 +48,8 @@ type UpdateStatus = {
   kind: 'idle' | 'success' | 'error';
   message?: string;
 };
+
+type UpdateKind = 'latest' | 'fullHistory';
 
 const getTaipeiToday = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -58,9 +75,15 @@ function App() {
   const [csvStatus, setCsvStatus] = useState<string>();
   const [staticSeed, setStaticSeed] = useState<{ price: MarketPoint[]; totalReturn: MarketPoint[] } | null>(null);
   const [isUpdatingData, setIsUpdatingData] = useState(false);
+  const [updateKind, setUpdateKind] = useState<UpdateKind>('latest');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ kind: 'idle' });
   const [updateProgress, setUpdateProgress] = useState<TwseUpdateProgress | null>(null);
+  const [historySummary, setHistorySummary] = useState<HistoryStorageSummary | null>(null);
   const updateAbortController = useRef<AbortController | null>(null);
+
+  const refreshHistorySummary = async () => {
+    setHistorySummary(await getHistoryStorageSummary());
+  };
 
   const loadStaticSeed = async () => {
     const [priceLoaded, totalReturnLoaded] = await Promise.all([
@@ -120,6 +143,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    getHistoryStorageSummary().then((summary) => {
+      if (active) setHistorySummary(summary);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     writeStoredPreferences({ indexType, params });
   }, [indexType, params]);
 
@@ -142,6 +176,7 @@ function App() {
     }
 
     setIsUpdatingData(true);
+    setUpdateKind('latest');
     setUpdateStatus({ kind: 'idle' });
     setUpdateProgress({
       completed: 0,
@@ -162,12 +197,54 @@ function App() {
         setSourceError(undefined);
       }
       setUpdateStatus({ kind: 'success', message: outcome.message });
+      await refreshHistorySummary();
     } catch (error) {
       const cancelled = error instanceof DOMException && error.name === 'AbortError';
       setUpdateStatus({
         kind: cancelled ? 'success' : 'error',
         message: cancelled ? '已取消 TWSE 資料更新。' : error instanceof Error ? error.message : 'TWSE 資料更新失敗。',
       });
+    } finally {
+      updateAbortController.current = null;
+      setIsUpdatingData(false);
+      setUpdateProgress(null);
+    }
+  };
+
+  const handleFullHistoryDownload = async () => {
+    setIsUpdatingData(true);
+    setUpdateKind('fullHistory');
+    setUpdateStatus({ kind: 'idle' });
+    setUpdateProgress({
+      completed: 0,
+      total: 1,
+      label: '檢查本機歷史資料',
+    });
+
+    const abortController = new AbortController();
+    updateAbortController.current = abortController;
+
+    try {
+      const outcome = await downloadFullTwseHistory(setUpdateProgress, abortController.signal);
+      if (outcome.stored && source !== 'csv') {
+        setPoints(outcome.stored[indexType]);
+        setMetadata(outcome.stored.metadata);
+        setSource('storage');
+        setSourceError(undefined);
+      }
+      setUpdateStatus({ kind: 'success', message: outcome.message });
+      await refreshHistorySummary();
+    } catch (error) {
+      const cancelled = error instanceof DOMException && error.name === 'AbortError';
+      setUpdateStatus({
+        kind: cancelled ? 'success' : 'error',
+        message: cancelled
+          ? '已暫停完整歷史下載，下次會從缺少月份繼續。'
+          : error instanceof Error
+            ? error.message
+            : '完整歷史資料下載失敗。',
+      });
+      await refreshHistorySummary();
     } finally {
       updateAbortController.current = null;
       setIsUpdatingData(false);
@@ -182,7 +259,9 @@ function App() {
   const handleClearStoredData = async () => {
     if (!window.confirm('確定要清除瀏覽器中的 TWSE 手動更新資料嗎？')) return;
     clearStoredMarketData();
-    setUpdateStatus({ kind: 'success', message: '已清除本地手動更新資料。' });
+    await clearHistoryStorage();
+    await refreshHistorySummary();
+    setUpdateStatus({ kind: 'success', message: '已清除本機 TWSE 與完整歷史資料。' });
     setUpdateProgress(null);
 
     if (source === 'csv') return;
@@ -235,13 +314,16 @@ function App() {
           </div>
           <DataActions
             isUpdating={isUpdatingData}
+            historySummary={historySummary}
             latestDate={result.latestDate}
             metadata={metadata}
             source={source}
             updateProgress={updateProgress}
+            updateKind={updateKind}
             updateStatus={updateStatus}
             onCancel={handleCancelUpdate}
             onClear={handleClearStoredData}
+            onDownloadHistory={handleFullHistoryDownload}
             onUpdate={handleManualUpdate}
           />
         </div>
