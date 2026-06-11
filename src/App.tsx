@@ -256,7 +256,8 @@ function App() {
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6">
         <AlertSummary result={result} params={params} dataHealth={dataHealth} />
         <IndexChart
-          resetKey={`${source}:${indexType}:${params.lookbackDays}:${params.highLowMode}:${result.latestDate}`}
+          points={points}
+          resetKey={`${source}:${indexType}:${params.lookbackDays}:${params.highLowMode}:${points[0]?.date}:${result.latestDate}`}
           result={result}
         />
         <KeyMetricsBar result={result} indexType={indexType} />

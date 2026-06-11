@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculatePullback, getNearThreshold, validateMarketData } from './calculations';
+import {
+  buildChartData,
+  calculatePullback,
+  getNearThreshold,
+  validateMarketData,
+} from './calculations';
 import type { MarketPoint, PullbackParams } from '../types';
 
 const params: PullbackParams = {
@@ -40,5 +45,20 @@ describe('pullback calculations', () => {
         { date: '2026-01-03', index: -1 },
       ]),
     ).toEqual([{ date: '2026-01-02', index: 101 }]);
+  });
+
+  it('builds the chart from full history but limits threshold lines to the calculation window', () => {
+    const history = [
+      { date: '2026-01-01', index: 90 },
+      { date: '2026-01-02', index: 100 },
+      { date: '2026-01-05', index: 93 },
+    ];
+    const result = calculatePullback(history, { ...params, lookbackDays: 2 });
+    const chart = buildChartData(history, result);
+
+    expect(chart).toHaveLength(3);
+    expect(chart[0].rollingHigh).toBeUndefined();
+    expect(chart[1].rollingHigh).toBe(100);
+    expect(chart[2].thresholdIndex).toBe(90);
   });
 });

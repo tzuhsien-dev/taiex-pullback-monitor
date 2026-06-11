@@ -203,13 +203,21 @@ const calculatePullbackFromSorted = (sorted: MarketPoint[], params: PullbackPara
 export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult =>
   calculatePullbackFromSorted(sortMarketData(validateMarketData(points)), params);
 
-export const buildChartData = (result: PullbackResult): ChartPoint[] =>
-  result.lookbackData.map((point) => ({
+export const buildChartData = (points: MarketPoint[], result: PullbackResult): ChartPoint[] => {
+  const sorted = sortMarketData(validateMarketData(points));
+  const lookbackStartDate = result.lookbackData[0]?.date;
+
+  return sorted.map((point) => ({
     ...point,
-    rollingHigh: result.rollingHigh,
-    rollingLow: result.rollingLow,
-    thresholdIndex: result.thresholdIndex,
+    ...(lookbackStartDate && point.date >= lookbackStartDate
+      ? {
+          rollingHigh: result.rollingHigh,
+          rollingLow: result.rollingLow,
+          thresholdIndex: result.thresholdIndex,
+        }
+      : {}),
   }));
+};
 
 const distributionBins: Array<Omit<HistoricalPullbackBin, 'count' | 'reachedThreshold' | 'containsCurrent'>> = [
   { label: '0-3%', min: 0, max: 0.03 },

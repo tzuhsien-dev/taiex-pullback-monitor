@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { PullbackResult } from '../types';
+import type { MarketPoint, PullbackResult } from '../types';
 import { buildChartData, formatNumber, formatPercent } from '../lib/calculations';
 import { getDefaultZoomRange, isZoomRangeActive, resolveZoomRange } from '../lib/chartZoom';
 
@@ -41,14 +41,27 @@ function useCompactChart() {
   return isCompact;
 }
 
-export function IndexChart({ result, resetKey }: { result: PullbackResult; resetKey: string }) {
+export function IndexChart({
+  points,
+  result,
+  resetKey,
+}: {
+  points: MarketPoint[];
+  result: PullbackResult;
+  resetKey: string;
+}) {
   const isCompact = useCompactChart();
-  const data = useMemo(() => buildChartData(result), [result]);
+  const data = useMemo(() => buildChartData(points, result), [points, result]);
   const zoomKey = `${resetKey}:${result.lookbackData.length}`;
   const [storedZoomRange, setZoomRange] = useState(() => getDefaultZoomRange(zoomKey, data.length));
   const zoomRange = resolveZoomRange(storedZoomRange, zoomKey, data.length);
   const resetZoom = () => setZoomRange(getDefaultZoomRange(zoomKey, data.length));
   const isZoomed = isZoomRangeActive(zoomRange, data.length);
+  const visibleCount = zoomRange.endIndex - zoomRange.startIndex + 1;
+  const formatAxisDate = (value: unknown) => {
+    const date = String(value);
+    return visibleCount > 500 ? date.slice(0, 7) : date.slice(5);
+  };
   const latestPoint = data[data.length - 1];
   const highPoint = data.find((point) => point.date === result.rollingHighDate && point.index === result.rollingHigh);
   const lowPoint = data.find((point) => point.date === result.rollingLowDate && point.index === result.rollingLow);
@@ -62,7 +75,9 @@ export function IndexChart({ result, resetKey }: { result: PullbackResult; reset
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">指數走勢與回落門檻</h2>
-          <p className="mt-1 text-sm text-slate-500">近 {result.lookbackData.length} 筆資料，可拖曳下方選取器縮放日期區間</p>
+          <p className="mt-1 text-sm text-slate-500">
+            顯示全部 {data.length} 筆資料；高低點與門檻依近 {result.lookbackData.length} 個交易日計算
+          </p>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-400 lg:justify-end lg:text-right">
           <span>目前回落 {formatPercent(result.pullback)}</span>
@@ -82,7 +97,7 @@ export function IndexChart({ result, resetKey }: { result: PullbackResult; reset
         <ResponsiveContainer height="100%" width="100%">
           <LineChart data={data} margin={isCompact ? { top: 18, right: 8, bottom: 0, left: 0 } : { top: 24, right: 28, bottom: 4, left: 2 }}>
             <CartesianGrid stroke="#26364f" strokeDasharray="3 3" />
-            <XAxis dataKey="date" minTickGap={isCompact ? 58 : 30} stroke="#94a3b8" tick={{ fontSize: isCompact ? 10 : 12 }} tickFormatter={(value) => String(value).slice(5)} />
+            <XAxis dataKey="date" minTickGap={isCompact ? 58 : 30} stroke="#94a3b8" tick={{ fontSize: isCompact ? 10 : 12 }} tickFormatter={formatAxisDate} />
             <YAxis
               domain={['dataMin - 250', 'dataMax + 250']}
               hide={isCompact}
@@ -127,7 +142,7 @@ export function IndexChart({ result, resetKey }: { result: PullbackResult; reset
               height={isCompact ? 24 : 30}
               startIndex={zoomRange.startIndex}
               stroke="#22d3ee"
-              tickFormatter={(value) => String(value).slice(5)}
+              tickFormatter={(value) => String(value).slice(0, 7)}
               travellerWidth={isCompact ? 12 : 8}
               onChange={(range) => {
                 if (typeof range.startIndex === 'number' && typeof range.endIndex === 'number') {
