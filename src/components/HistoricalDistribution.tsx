@@ -21,7 +21,10 @@ export function HistoricalDistribution({
   params: PullbackParams;
   result: PullbackResult;
 }) {
-  const distribution = calculateHistoricalPullbackDistribution(points, params, result);
+  const distribution = useMemo(
+    () => calculateHistoricalPullbackDistribution(points, params, result),
+    [params, points, result],
+  );
 
   if (!distribution) {
     return (
@@ -106,3 +109,4 @@ export function HistoricalDistribution({
     </section>
   );
 }
+import { useMemo } from 'react';

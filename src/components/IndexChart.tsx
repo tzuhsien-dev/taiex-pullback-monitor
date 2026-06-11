@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Brush,
   CartesianGrid,
   Line,
   LineChart,
@@ -11,6 +12,7 @@ import {
 } from 'recharts';
 import type { PullbackResult } from '../types';
 import { buildChartData, formatNumber, formatPercent } from '../lib/calculations';
+import { getDefaultZoomRange, isZoomRangeActive, resolveZoomRange } from '../lib/chartZoom';
 
 const lowLineLabel = {
   rolling: 'N 日低點',
@@ -39,9 +41,14 @@ function useCompactChart() {
   return isCompact;
 }
 
-export function IndexChart({ result }: { result: PullbackResult }) {
+export function IndexChart({ result, resetKey }: { result: PullbackResult; resetKey: string }) {
   const isCompact = useCompactChart();
-  const data = buildChartData(result);
+  const data = useMemo(() => buildChartData(result), [result]);
+  const zoomKey = `${resetKey}:${result.lookbackData.length}`;
+  const [storedZoomRange, setZoomRange] = useState(() => getDefaultZoomRange(zoomKey, data.length));
+  const zoomRange = resolveZoomRange(storedZoomRange, zoomKey, data.length);
+  const resetZoom = () => setZoomRange(getDefaultZoomRange(zoomKey, data.length));
+  const isZoomed = isZoomRangeActive(zoomRange, data.length);
   const latestPoint = data[data.length - 1];
   const highPoint = data.find((point) => point.date === result.rollingHighDate && point.index === result.rollingHigh);
   const lowPoint = data.find((point) => point.date === result.rollingLowDate && point.index === result.rollingLow);
@@ -55,11 +62,19 @@ export function IndexChart({ result }: { result: PullbackResult }) {
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-white">指數走勢與回落門檻</h2>
-          <p className="mt-1 text-sm text-slate-500">近 {result.lookbackData.length} 筆資料，追蹤高點與回落門檻</p>
+          <p className="mt-1 text-sm text-slate-500">近 {result.lookbackData.length} 筆資料，可拖曳下方選取器縮放日期區間</p>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-400 lg:justify-end lg:text-right">
           <span>目前回落 {formatPercent(result.pullback)}</span>
           <span>門檻點位 {formatNumber(result.thresholdIndex)}</span>
+          <button
+            className="rounded border border-slate-700 px-2 py-0.5 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!isZoomed}
+            type="button"
+            onClick={resetZoom}
+          >
+            重設縮放
+          </button>
         </div>
       </div>
 
@@ -105,6 +120,21 @@ export function IndexChart({ result }: { result: PullbackResult }) {
             {latestPoint ? (
               <ReferenceDot fill="#22d3ee" r={7} stroke="#ffffff" x={latestPoint.date} y={latestPoint.index} />
             ) : null}
+            <Brush
+              dataKey="date"
+              endIndex={zoomRange.endIndex}
+              fill="#111c2e"
+              height={isCompact ? 24 : 30}
+              startIndex={zoomRange.startIndex}
+              stroke="#22d3ee"
+              tickFormatter={(value) => String(value).slice(5)}
+              travellerWidth={isCompact ? 12 : 8}
+              onChange={(range) => {
+                if (typeof range.startIndex === 'number' && typeof range.endIndex === 'number') {
+                  setZoomRange({ key: zoomKey, startIndex: range.startIndex, endIndex: range.endIndex });
+                }
+              }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

@@ -45,7 +45,6 @@ export type PullbackParams = {
   highLowMode: HighLowMode;
   lookbackDays: number;
   pullbackThreshold: number;
-  nearThreshold: number;
   pivotThreshold: number;
   volLookback: number;
   volatilityMultiplier: number;
@@ -79,6 +78,11 @@ export type PullbackResult = {
   status: PullbackStatus;
   statusText: string;
   lookbackData: MarketPoint[];
+};
+
+export type StoredPreferences = {
+  indexType: IndexType;
+  params: PullbackParams;
 };
 
 export type ChartPoint = MarketPoint & {

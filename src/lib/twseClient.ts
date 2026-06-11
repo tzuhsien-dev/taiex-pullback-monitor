@@ -42,8 +42,25 @@ const monthsBack = 60;
 const requestDelayMs = 180;
 const maxFetchAttempts = 4;
 const eveningRefreshHour = 19;
+const requestTimeoutMs = 15_000;
 
-const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('更新已取消。', 'AbortError'));
+      return;
+    }
+
+    const handleAbort = () => {
+      window.clearTimeout(timeoutId);
+      reject(new DOMException('更新已取消。', 'AbortError'));
+    };
+    const timeoutId = window.setTimeout(() => {
+      signal?.removeEventListener('abort', handleAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  });
 
 const taipeiDateParts = (date = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -93,22 +110,42 @@ const parseTwseDate = (value: string, context: string) => {
 const findFieldIndex = (fields: string[], candidates: string[]) =>
   fields.findIndex((field) => candidates.some((candidate) => field.replace(/\s/g, '').includes(candidate)));
 
-const fetchMonth = async (indexType: IndexType, month: Date) => {
+const fetchMonth = async (indexType: IndexType, month: Date, signal?: AbortSignal) => {
   const monthParam = toMonthParam(month);
   const url = `${endpoints[indexType]}?response=json&date=${monthParam}`;
 
   for (let attempt = 1; attempt <= maxFetchAttempts; attempt += 1) {
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-      },
-    });
+    signal?.throwIfAborted();
+    const timeoutController = new AbortController();
+    const timeoutId = window.setTimeout(() => timeoutController.abort(), requestTimeoutMs);
+    const abortFromParent = () => timeoutController.abort();
+    signal?.addEventListener('abort', abortFromParent, { once: true });
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: timeoutController.signal,
+      });
+    } catch (error) {
+      if (signal?.aborted) throw new DOMException('更新已取消。', 'AbortError');
+      if (attempt === maxFetchAttempts) {
+        throw new Error(`${indexLabel[indexType]} ${monthParam}: TWSE 連線逾時或失敗`, { cause: error });
+      }
+      await sleep(requestDelayMs * attempt, signal);
+      continue;
+    } finally {
+      window.clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', abortFromParent);
+    }
 
     if (!response.ok) {
       if (attempt === maxFetchAttempts) {
         throw new Error(`${indexLabel[indexType]} ${monthParam}: TWSE request failed ${response.status}`);
       }
-      await sleep(requestDelayMs * attempt);
+      await sleep(requestDelayMs * attempt, signal);
       continue;
     }
 
@@ -117,7 +154,7 @@ const fetchMonth = async (indexType: IndexType, month: Date) => {
       if (attempt === maxFetchAttempts) {
         throw new Error(`${indexLabel[indexType]} ${monthParam}: TWSE stat is not OK (${payload.stat ?? 'missing stat'})`);
       }
-      await sleep(requestDelayMs * attempt);
+      await sleep(requestDelayMs * attempt, signal);
       continue;
     }
 
@@ -167,6 +204,7 @@ const fetchRecentMonths = async (
     total: number;
     onProgress?: (progress: TwseUpdateProgress) => void;
   },
+  signal?: AbortSignal,
 ) => {
   const now = new Date();
   const monthCount = getRefreshMonthCount(existing);
@@ -174,12 +212,13 @@ const fetchRecentMonths = async (
   const fetched: MarketPoint[] = [];
 
   for (const month of months) {
+    signal?.throwIfAborted();
     progress.onProgress?.({
       completed: progress.completed,
       total: progress.total,
       label: `讀取 ${indexLabel[indexType]} ${toMonthParam(month).slice(0, 6)}`,
     });
-    const payload = await fetchMonth(indexType, month);
+    const payload = await fetchMonth(indexType, month, signal);
     fetched.push(...parsePayload(payload, indexType, month));
     progress.completed += 1;
     progress.onProgress?.({
@@ -187,7 +226,7 @@ const fetchRecentMonths = async (
       total: progress.total,
       label: `完成 ${indexLabel[indexType]} ${toMonthParam(month).slice(0, 6)}`,
     });
-    await sleep(requestDelayMs);
+    await sleep(requestDelayMs, signal);
   }
 
   return mergeAndTrim(existing, fetched);
@@ -225,7 +264,9 @@ export const updateTwseDataInStorage = async (
     price: MarketPoint[];
     totalReturn: MarketPoint[];
   },
+  signal?: AbortSignal,
 ): Promise<UpdateOutcome> => {
+  signal?.throwIfAborted();
   const stored = readStoredMarketData();
   const { date: today, hour } = taipeiDateParts();
   const hasTodayData = stored?.metadata.priceLatestDate === today && stored.metadata.totalReturnLatestDate === today;
@@ -262,8 +303,8 @@ export const updateTwseDataInStorage = async (
     total: getRefreshMonthCount(existingPrice) + getRefreshMonthCount(existingTotalReturn),
     onProgress,
   };
-  const price = await fetchRecentMonths('price', existingPrice, progress);
-  const totalReturn = await fetchRecentMonths('totalReturn', existingTotalReturn, progress);
+  const price = await fetchRecentMonths('price', existingPrice, progress, signal);
+  const totalReturn = await fetchRecentMonths('totalReturn', existingTotalReturn, progress, signal);
   const metadata = buildMetadata(price, totalReturn);
   const fetchedToday = metadata.priceLatestDate === today && metadata.totalReturnLatestDate === today;
   const nextStored: StoredMarketData = {

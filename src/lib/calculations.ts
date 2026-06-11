@@ -43,8 +43,20 @@ export const formatDateTime = (value?: string | null) => {
 export const sortMarketData = (points: MarketPoint[]) =>
   [...points].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-export const validateMarketData = (points: MarketPoint[]) =>
-  points.filter((point) => point.date && Number.isFinite(point.index) && point.index > 0);
+const isValidIsoDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+};
+
+export const validateMarketData = (points: MarketPoint[]) => {
+  const validPoints = points.filter(
+    (point) => isValidIsoDate(point.date) && Number.isFinite(point.index) && point.index > 0,
+  );
+  return [...new Map(validPoints.map((point) => [point.date, point])).values()];
+};
+
+export const getNearThreshold = (pullbackThreshold: number) => pullbackThreshold * 0.7;
 
 const getExtremePoint = (points: MarketPoint[], mode: 'max' | 'min') => {
   if (points.length === 0) {
@@ -58,6 +70,8 @@ const getExtremePoint = (points: MarketPoint[], mode: 'max' | 'min') => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const isAtOrBelow = (value: number, threshold: number) =>
+  value < threshold || Math.abs(value - threshold) < 1e-12;
 
 const calculateVolatilityThreshold = (points: MarketPoint[], params: PullbackParams) => {
   const returns = points
@@ -68,12 +82,15 @@ const calculateVolatilityThreshold = (points: MarketPoint[], params: PullbackPar
     })
     .filter(Number.isFinite);
 
+  const minimum = Math.min(params.minThreshold, params.maxThreshold);
+  const maximum = Math.max(params.minThreshold, params.maxThreshold);
+
   if (returns.length === 0) {
-    return params.minThreshold;
+    return minimum;
   }
 
   const avgAbsReturn = returns.reduce((sum, value) => sum + value, 0) / returns.length;
-  return clamp(avgAbsReturn * params.volatilityMultiplier, params.minThreshold, params.maxThreshold);
+  return clamp(avgAbsReturn * params.volatilityMultiplier, minimum, maximum);
 };
 
 const calculateZigZagState = (points: MarketPoint[], pivotThreshold: number) => {
@@ -132,9 +149,7 @@ const calculateZigZagState = (points: MarketPoint[], pivotThreshold: number) => 
   };
 };
 
-export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult => {
-  const sorted = sortMarketData(validateMarketData(points));
-
+const calculatePullbackFromSorted = (sorted: MarketPoint[], params: PullbackParams): PullbackResult => {
   if (sorted.length === 0) {
     throw new Error('沒有可計算的指數資料。');
   }
@@ -156,10 +171,10 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
   let status: PullbackStatus = 'normal';
   let statusText = '尚未達回落門檻';
 
-  if (pullback <= -params.pullbackThreshold) {
+  if (isAtOrBelow(pullback, -params.pullbackThreshold)) {
     status = 'triggered';
     statusText = '已達近期高點回落門檻';
-  } else if (pullback <= -params.nearThreshold) {
+  } else if (isAtOrBelow(pullback, -getNearThreshold(params.pullbackThreshold))) {
     status = 'near';
     statusText = '接近回落門檻';
   }
@@ -184,6 +199,9 @@ export const calculatePullback = (points: MarketPoint[], params: PullbackParams)
     lookbackData,
   };
 };
+
+export const calculatePullback = (points: MarketPoint[], params: PullbackParams): PullbackResult =>
+  calculatePullbackFromSorted(sortMarketData(validateMarketData(points)), params);
 
 export const buildChartData = (result: PullbackResult): ChartPoint[] =>
   result.lookbackData.map((point) => ({
@@ -218,7 +236,7 @@ export const calculateHistoricalPullbackDistribution = (
 
   const samples: HistoricalPullbackPoint[] = sorted.slice(params.lookbackDays - 1).map((point, index) => {
     const sourceIndex = index + params.lookbackDays - 1;
-    const result = calculatePullback(sorted.slice(0, sourceIndex + 1), params);
+    const result = calculatePullbackFromSorted(sorted.slice(0, sourceIndex + 1), params);
     const pullbackDepth = Math.max(0, -result.pullback);
 
     return {
